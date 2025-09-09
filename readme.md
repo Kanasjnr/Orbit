@@ -358,3 +358,297 @@ SPDX-License-Identifier: MIT. See headers in Solidity sources.
 - Hardhat config: `contract/hardhat.config.ts`
 
 
+---
+
+### V1 PoC vs V2+ Plan (Mapping and Terminology)
+
+- **V1 (this repo)**: Minimal PoC on Polkadot Asset Hub EVM using Solidity.
+  - oDOT (ERC-20 shares) = PoC liquid staking token
+  - Simulated base APR and restaking APR inside `StakingVault`
+  - No governance token, no XCM, no on-chain validator oracle
+- **V2+ (vision)**: Polkadot-native stack with Substrate/Ink!, validator oracle, XCM routing, and broader integrations.
+  - stDOT = production liquid staking token (maps conceptually to V1 oDOT)
+  - rsDOT = restaking derivative minted when committing stDOT to services
+  - YL = governance token for parameters, incentives, and treasury
+
+The sections below lay out the full V2+ design and narrative. Use them as the product brief; the PoC demonstrates flows and math end-to-end with simplified components.
+
+---
+
+### Vision (V2+): Detailed Plan
+
+#### Table of Contents
+
+- **Overview: What Is Orbit?**
+- **Polkadot and Staking: The Basics**
+  - Polkadot: A Network of Connected Blockchains
+  - Staking: Earning Rewards by Securing Polkadot
+  - Liquid Staking and Restaking: Making Money Work Harder
+  - Why Orbit Matters
+- **Problems We’re Fixing**
+  - Locked Money: Why Staking Freezes Your Funds
+  - Scattered Staking: Parachains Don’t Play Nice
+  - Validators: Not Reaching Their Full Power
+  - Missing Restaking: Polkadot’s Untapped Potential
+- **How Orbit Works**
+  - The Building Blocks: Pools, Tokens, and More
+  - stDOT: Your Liquid Staking Ticket
+  - rsDOT: Supercharging Your Earnings
+  - Connecting to Polkadot’s System
+  - Tech Tools: How We Build It
+- **Step-by-Step: Inside Orbit**
+  - The System: Pools, Contracts, and Oracles
+  - Your Journey: From Depositing to Earning
+  - Validators: Their Role and Rewards
+  - System Flow (Text Diagram)
+  - Token Journey (Text Diagram)
+- **Who’s Involved and Why They Benefit**
+  - You: The Staker
+  - Validators: Network Guardians
+  - The Protocol: Orbit’s Engine
+  - The Community: Running the Show
+  - DeFi Apps: Partners in Profit
+- **Money Matters: Tokens and Rewards**
+  - YL Token: Your Voice
+  - stDOT: Your Flexible Stake
+  - rsDOT: Extra Earnings
+  - Fees and Rewards: Keeping It Fair
+  - How Value Grows
+  - Business Model: Simple and Sustainable
+- **Staying Safe: Security and Risks**
+  - Choosing Validators Wisely
+  - Slashing: Risks and Protections
+  - Securing the Tech
+  - Polkadot’s Strong Foundation
+- **Real-Life Uses**
+  - DeFi: Lend, Trade, Earn More
+  - Moving Money Across Polkadot
+  - Securing Tools Like Oracles
+  - Helping New Parachains
+- **MVP: Minimum Viable Product**
+  - MVP Overview: What’s the Goal?
+  - Core Features: Keeping It Simple
+  - Technical Architecture: Standard Polkadot Build
+  - What’s Excluded from the MVP
+  - User Experience: How It Works
+  - Deployment and Testing
+  - Why This MVP Wins
+- **Our Plan: What’s Next**
+- **Community Power: Governance**
+- **Why We’re Different**
+  - Other Staking Tools on Polkadot
+  - Orbit’s Edge
+- **Final Thoughts**
+- **Appendices**
+  - A. Simple Terms Explained
+  - B. Where Our Data Comes From
+
+---
+
+#### Overview: What Is Orbit?
+
+Think of Orbit as a smart bank account for your crypto on Polkadot. You deposit DOT and earn staking rewards while receiving a liquid receipt (stDOT) you can use across DeFi. You can also restake that receipt (rsDOT) to help secure additional services and earn more. As of 2025 (user-provided figures), tens of billions in DOT are staked and much of it is idle in DeFi; Orbit unlocks that capital.
+
+- **Key benefits**
+  - Freedom: Use staked funds in DeFi without waiting for unbonding.
+  - More money: Base staking yield plus restaking yield.
+  - Safety: Built on Polkadot’s shared security; conservative limits.
+  - Ease: Simple UX across parachains via XCM.
+
+Illustrative 2025 context (user-provided): ~49% of DOT staked (~$5.6B), ~50k stakers; DeFi TVL on Polkadot growing toward ~$100M. Orbit targets unlocking a portion of this idle capital with liquid staking and restaking.
+
+---
+
+#### Polkadot and Staking: The Basics
+
+- **Polkadot**: Layer-0 with a Relay Chain and many parachains (e.g., Acala, Moonbeam, Astar, Phala). XCM enables asset and message movement between them.
+- **Staking**: Nominators back validators to secure the network and earn yield. Risks include lockup periods and slashing.
+- **Liquid staking & restaking**: Liquid staking issues stDOT to keep capital usable. Restaking commits stDOT again to secure other services, earning additional rewards.
+- **Why Orbit matters**: It operationalizes both, tailored for Polkadot’s architecture.
+
+Examples (user-provided):
+
+- Staking yields around 12–15% APR (e.g., 12.16%). Validators typically take a commission; nominators face a 28-day unbonding period.
+- Liquid staking lets you hold stDOT while using it in DeFi (e.g., lending for an additional ~5%).
+- Restaking can add a further ~5–15% depending on the secured service and risk profile.
+
+---
+
+#### Problems We’re Fixing
+
+- Locked capital due to unbonding periods limiting DeFi use.
+- Fragmented security across parachains with separate incentives.
+- Validators underutilized beyond Relay Chain duties.
+- No restaking layer on Polkadot to aggregate additional security and rewards.
+
+Illustrative market context (user-provided): liquid staking exists (e.g., Bifrost ~$90–100M, Acala ~$19–25M) but a unified restaking marketplace is missing.
+
+---
+
+#### How Orbit Works
+
+- **Building blocks**
+  - Staking Pool: pools DOT and nominates validators.
+  - Restaking Pool: commits stDOT to services or middleware.
+  - Validator Oracle: on-chain/off-chain oracle scores and selects validators.
+  - Tokens: stDOT (liquid staking), rsDOT (restaking), YL (governance).
+  - DAO: governs parameters, fees, and listings.
+
+- **stDOT**
+  - Minted 1:1 on deposit; accrues staking rewards.
+  - Usable in DeFi (AMMs, lending, perps) via XCM integrations.
+
+- **rsDOT**
+  - Minted when locking stDOT into a restaking pool.
+  - Accrues additional rewards from the secured service.
+
+- **Connecting to Polkadot**
+  - NPoS-based validator selection via Polkadot.js and/or on-chain pallets.
+  - XCM moves assets between parachains.
+
+- **Tech tools**
+  - Substrate pallets (staking, balances, governance), Ink! contracts for Polkadot-native logic, Solidity on EVM chains (e.g., Moonbeam) for DeFi integrations.
+
+Notes:
+
+- V1 PoC in this repo demonstrates the flows in Solidity on Asset Hub EVM. V2+ envisions Polkadot-native Ink!/Substrate for staking/restaking core and XCM routing to DeFi.
+
+---
+
+#### Step-by-Step: Inside Orbit
+
+- **System**: parachain pallets + Ink!/Solidity contracts + validator oracle + frontend.
+- **User journey**
+  1) Stake: deposit DOT, receive stDOT.
+  2) Restake: lock stDOT and receive rsDOT.
+  3) Use DeFi: transfer stDOT via XCM and use in partner apps.
+  4) Withdraw: burn rsDOT→stDOT, and stDOT→DOT with unbonding.
+- **Validators**: opt-in to restaking tasks and receive extra commissions.
+- **Text flow (high-level)**: DOT → staking pool → stDOT → optional restaking (rsDOT) → DeFi via XCM → unwind to redeem DOT.
+
+Token journey example (user-provided):
+
+- Deposit 100 DOT → receive 100 stDOT.
+- Restake 50 stDOT to a service → receive 50 rsDOT; total APR could be ~17–27% depending on service.
+- Send remaining stDOT to Acala via XCM for lending; borrow aUSD to loop yields.
+- To exit: burn rsDOT → stDOT; burn stDOT → start unbonding; withdraw DOT after period.
+
+---
+
+#### Who’s Involved and Why They Benefit
+
+- **Stakers**: flexible yield (staking + restaking) and governance rights.
+- **Validators**: more stake, extra fees, broader role.
+- **Protocol**: sustainable fee capture to fund development and insurance.
+- **Community**: DAO control of parameters and listings.
+- **DeFi apps**: additional liquidity and users.
+
+Examples (user-provided): Acala (lending aUSD), HydraDX (AMM), Moonbeam (EVM apps), Astar (WASM/EVM), Phala (privacy compute).
+
+---
+
+#### Money Matters: Tokens and Rewards
+
+- **YL**: fixed-supply governance token to vote on fees, pools, limits.
+- **stDOT**: liquid staking derivative pegged to DOT via redemption.
+- **rsDOT**: restaking derivative with incremental yield and risk.
+- **Fees and rewards**: configurable; example PoC uses 5% protocol fee on base staking rewards, with future models exploring validator/protocol splits and insurance funding.
+- **Business model (illustrative)**: MVP emphasizes user yield with a low fee on staking rewards and zero fee on initial restaking to seed adoption.
+
+Illustrative fee model and examples (user-provided):
+
+- Staking fee: 2% of staking rewards (e.g., 1% validators, 1% treasury). If a staker earns $100 in base rewards, fee is $2; user keeps $98 (~11.9% net APR if base is 12.16%).
+- Restaking fee: initially 0% to drive adoption; validators might receive an additional commission (e.g., 3.75%) directly from the service.
+- Target: $5–10M TVL as MVP scale; fees help fund operations and an insurance buffer.
+
+---
+
+#### Staying Safe: Security and Risks
+
+- **Validator selection**: weighted by uptime, slashing history, stake, and opt-in restaking.
+- **Slashing**: caps per validator and per service; pooled insurance funded by protocol fees in future versions.
+- **Tech security**: audits, formal verification, bounties; OpenZeppelin usage for Solidity and Ink! best practices.
+- **Polkadot foundation**: shared security and mature tooling.
+
+Validator selection criteria (illustrative, user-provided):
+
+- Uptime >95% (40–50% weight)
+- No slashing in last 6 months (30% weight)
+- Stake size (20% weight)
+- Restaking opt-in (10% weight)
+
+Example scoring formula: Score = 0.4×Uptime% + 0.3×(100 if no slashes) + 0.2×(Stake/10M DOT capped) + 0.1×(100 if restaking).
+
+Risk limits (illustrative): cap per-validator and per-service exposure (e.g., max 20% of a validator’s delegated stake at risk per service); portion of protocol fees funds an insurance pool in future versions.
+
+---
+
+#### Real-Life Uses
+
+- DeFi looping with stDOT, AMM LP, lending/borrowing.
+- XCM transfers to DeFi-focused parachains.
+- Restaking to secure oracles, data availability, and new parachains.
+
+Examples (user-provided):
+
+- Lend: 100 stDOT on Acala → borrow aUSD → earn ~17% combined APR (12% staking + 5% lending).
+- Trade: provide stDOT liquidity on HydraDX; earn swap fees.
+- Secure: restake rsDOT to oracle networks (e.g., Chainlink) or Phala’s compute pools; earn additional 5–15%.
+
+---
+
+#### MVP: Minimum Viable Product
+
+- **Goal**: demonstrate liquid staking (stDOT) and a single basic restaking pool (rsDOT optional), plus one DeFi integration via XCM.
+- **Core features**: staking pool, simple validator selection, stDOT issuance, optional rsDOT, single-parachain DeFi integration.
+- **Architecture**: Substrate pallets + Ink! for core; Solidity for integrations where needed; Polkadot.js API glue.
+- **Out of scope**: governance token launch, multi-parachain routing, full restaking marketplace.
+- **UX**: connect wallet, deposit, receive stDOT, optional restake, use in DeFi, withdraw with unbonding.
+- **Deployment/testing**: stage on testnets; audits as gating.
+
+Illustrative plan (user-provided):
+
+- Testnet MVP in Q4 2025; mainnet target Q1 2026 (subject to change).
+- Test XCM bridging to a single DeFi partner (e.g., Acala) with simulated $1–5M TVL.
+- Optional rsDOT pilot on a test service (e.g., oracle) before broader rollout.
+
+---
+
+#### Our Plan: What’s Next
+
+- Sequence testnet MVP → mainnet launch → rsDOT expansion → multi-parachain support → broad DeFi partnerships → full DAO control.
+- Illustrative milestones (user-provided): Q4 2025 MVP (testnet), Q1 2026 mainnet + rsDOT, Q2 2026 GLMR/ASTR support, Q3 2026 DeFi partnerships and $50M staked, 2027 full community governance.
+
+---
+
+#### Community Power: Governance
+
+- YL DAO governs fees, validator sets, pool listings, insurance parameters.
+
+---
+
+#### Why We’re Different
+
+- First to combine Polkadot-native liquid staking with a restaking layer and cross-parachain DeFi routing.
+- Dual-stack strategy (Ink! + Solidity) for maximal compatibility.
+
+Context (user-provided):
+
+- Bifrost: ~$90–100M staked (major share of DOT liquid staking), no restaking layer.
+- Acala: ~$19–25M staked with DeFi focus, limited to its parachain.
+- Parallel Finance: smaller-scale DOT staking.
+
+---
+
+#### Final Thoughts
+
+Orbit makes Polkadot staking simple, flexible, and rewarding. The PoC demonstrates mechanics; the vision scales to a full restaking marketplace governed by the community.
+
+---
+
+#### Appendices
+
+- **A. Simple Terms**: DOT (Polkadot token), stDOT (liquid stake), rsDOT (restaking), NPoS, XCM, Substrate/Ink!, Polkadot.js.
+- **B. Sources**: Polkadot and ecosystem docs, user-provided 2025 market stats, staking dashboards, and whitepapers. Figures are illustrative and may change.
+
+
