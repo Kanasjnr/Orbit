@@ -123,83 +123,53 @@ Orbit v1 introduces a liquid staking + restaking protocol on Polkadot Asset Hub 
 
 #### 4.4 Flow Diagrams
 
-These text diagrams illustrate how the Solidity PoC flows work with `ODOT` and `StakingVault`.
+These diagrams illustrate how the Solidity PoC flows work with `ODOT` and `StakingVault`.
 
-##### 1) System Flow (Deposit → Optional Lock → Unstake/ Redeem)
+User Flow (Mermaid)
 
-```text
-User Wallet
-   |
-   | 1) deposit() with value (DOT)
-   v
-StakingVault.deposit()
-   - _accrueBaseRewards()
-   - totalBase += amount
-   - rate = totalBase / totalShares  (1e18-scaled; 1.0 when empty)
-   - sharesOut = amount * 1e18 / rate
-   - totalShares += sharesOut
-   - oDOT.mint(user, sharesOut)
-   |
-   +--> Optional Restake Path
-         user: odot.approve(vault, shares)
-         vault.lock(poolId, shares)
-            - escrow oDOT to vault
-            - records LockPosition { shares, since, lastAccrued, poolId }
-         ... time passes ...
-         vault.unlock(index)
-            - _accrueBaseRewards()
-            - compute bonusShares from pool.extraAprBps and blocks elapsed
-            - mint bonus oDOT to user
-            - return escrowed shares to user
+```mermaid
+flowchart TD
+  A[User Wallet] -->|deposit() value DOT| B[StakingVault.deposit()]
+  B --> C{{Accrue base rewards}}
+  C --> D{{Update totalBase}}
+  D --> E{{Compute rate = totalBase / totalShares}}
+  E --> F{{Compute sharesOut = amount * 1e18 / rate}}
+  F --> G[totalShares += sharesOut]
+  G --> H[oDOT.mint(user, sharesOut)]
 
-   +--> Unstake Path
-         user: odot.approve(vault, shares)
-         vault.requestUnstake(shares)
-            - escrow oDOT to vault
-            - pendingUnstake[user] = { shares, readyAt: block+cooldown }
-         ... after cooldown ...
-         vault.redeem()
-            - _accrueBaseRewards()
-            - amountOut = shares * rate / 1e18
-            - oDOT.burn(escrowedShares); totalShares -= shares
-            - totalBase -= amountOut
-            - send DOT to user
+  H --> I{Optional restake}
+  I -->|approve + lock(poolId, shares)| J[Escrow oDOT; record LockPosition]
+  J -->|unlock(index)| K[Mint bonus oDOT; return escrowed shares]
 
-Admin/Housekeeping
-   - Base APR accrual on actions; protocol fee siphoned to accruedFees
-   - owner.collectFees(amount) sends available DOT to feeRecipient
-   - owner.slash(amount) reduces totalBase (rate down for all)
-   - pause()/unpause() gates flows; emergencyUnlock() returns escrowed oDOT when paused
+  H --> L{Unstake}
+  L -->|approve + requestUnstake(shares)| M[Escrow oDOT; set readyAt]
+  M -->|redeem() after cooldown| N[Burn shares; totalShares -= shares; totalBase -= amountOut; send DOT]
+
+  subgraph Admin
+    O[collectFees(amount) -> feeRecipient]
+    P[slash(amount) -> totalBase - amount]
+    Q[pause/unpause; emergencyUnlock]
+  end
+  Admin --> B
 ```
 
-##### 2) Token Journey (State View)
+Token Journey (Mermaid)
 
-```text
-[User DOT] --deposit()--> [Vault backing (totalBase)] + [User oDOT (shares)]
-                                 |                         |
-                                 |                         +--approve()-->
-                                 |                                       \
-                                 |                                        \-- lock(poolId, shares)
-                                 |                                             (escrow oDOT in vault)
-                                 |                                              |
-                                 |                                              +-- unlock(index)
-                                 |                                                   - bonus oDOT minted
-                                 |                                                   - escrowed oDOT returned
-                                 |
-                                 +-- requestUnstake(shares)
-                                 |      (escrow oDOT in vault; cooldown)
-                                 |        |
-                                 |        +-- redeem() after readyAt
-                                 |             - burn escrowed oDOT
-                                 |             - DOT sent to user
-                                 |
-Global invariants / views:
-  - exchangeRate = totalBase / totalShares (1e18 scaled; 1.0 initially)
-  - previewDeposit(amount) -> sharesOut; previewRedeem(shares) -> amountOut
-  - liquidity() = address(vault).balance
+```mermaid
+flowchart LR
+  U[User DOT] -- deposit() --> V[(Vault totalBase)]
+  U -. claim via rate .-> S[oDOT (shares)]
+
+  S -- lock(poolId, shares) --> E[Escrowed in Vault]
+  E -- unlock(index) --> S
+
+  S -- requestUnstake(shares) --> X[Escrowed for Unstake]
+  X -- redeem() --> U2[User DOT back]
+
+  V -. exchangeRate = totalBase/totalShares .- S
 ```
 
----
+ 
 
 ### 5. Tokenomics
 
