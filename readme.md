@@ -24,6 +24,7 @@ Orbit introduces a liquid staking and restaking protocol for the Polkadot ecosys
   - 4.1 System Components
   - 4.2 Reward Mechanism
   - 4.3 Security & Slashing
+  - 4.4 Flow Diagrams
 - **5. Tokenomics**
   - 5.1 oDOT
   - 5.2 Fee Model
@@ -115,11 +116,88 @@ Orbit v1 introduces a liquid staking + restaking protocol on Polkadot Asset Hub 
 - **Protocol fee**: a share of base rewards (in bps) accrues to `accruedFees` and is withdrawable by the fee recipient.
 - **Restaking rewards (v1 PoC)**: per-pool `extraAprBps` mints bonus oDOT shares to lockers upon unlock.
 
-#### 4.3 Security & Slashing
+#### 4.3 Security 
 
-- **Slashing**: the owner can simulate slashing via `slash(amount)`, reducing `totalBase` (affects exchange rate downwards).
 - **Pause**: owner can `pause`/`unpause`. When paused, core flows are blocked but `emergencyUnlock` lets users recover escrowed oDOT from locks.
 - **Risks**: oDOT inherits base staking risks; restaking introduces proportional penalties in future versions. v2 envisions an insurance pool.
+
+#### 4.4 Flow Diagrams
+
+These text diagrams illustrate how the Solidity PoC flows work with `ODOT` and `StakingVault`.
+
+##### 1) System Flow (Deposit → Optional Lock → Unstake/ Redeem)
+
+```text
+User Wallet
+   |
+   | 1) deposit() with value (DOT)
+   v
+StakingVault.deposit()
+   - _accrueBaseRewards()
+   - totalBase += amount
+   - rate = totalBase / totalShares  (1e18-scaled; 1.0 when empty)
+   - sharesOut = amount * 1e18 / rate
+   - totalShares += sharesOut
+   - oDOT.mint(user, sharesOut)
+   |
+   +--> Optional Restake Path
+         user: odot.approve(vault, shares)
+         vault.lock(poolId, shares)
+            - escrow oDOT to vault
+            - records LockPosition { shares, since, lastAccrued, poolId }
+         ... time passes ...
+         vault.unlock(index)
+            - _accrueBaseRewards()
+            - compute bonusShares from pool.extraAprBps and blocks elapsed
+            - mint bonus oDOT to user
+            - return escrowed shares to user
+
+   +--> Unstake Path
+         user: odot.approve(vault, shares)
+         vault.requestUnstake(shares)
+            - escrow oDOT to vault
+            - pendingUnstake[user] = { shares, readyAt: block+cooldown }
+         ... after cooldown ...
+         vault.redeem()
+            - _accrueBaseRewards()
+            - amountOut = shares * rate / 1e18
+            - oDOT.burn(escrowedShares); totalShares -= shares
+            - totalBase -= amountOut
+            - send DOT to user
+
+Admin/Housekeeping
+   - Base APR accrual on actions; protocol fee siphoned to accruedFees
+   - owner.collectFees(amount) sends available DOT to feeRecipient
+   - owner.slash(amount) reduces totalBase (rate down for all)
+   - pause()/unpause() gates flows; emergencyUnlock() returns escrowed oDOT when paused
+```
+
+##### 2) Token Journey (State View)
+
+```text
+[User DOT] --deposit()--> [Vault backing (totalBase)] + [User oDOT (shares)]
+                                 |                         |
+                                 |                         +--approve()-->
+                                 |                                       \
+                                 |                                        \-- lock(poolId, shares)
+                                 |                                             (escrow oDOT in vault)
+                                 |                                              |
+                                 |                                              +-- unlock(index)
+                                 |                                                   - bonus oDOT minted
+                                 |                                                   - escrowed oDOT returned
+                                 |
+                                 +-- requestUnstake(shares)
+                                 |      (escrow oDOT in vault; cooldown)
+                                 |        |
+                                 |        +-- redeem() after readyAt
+                                 |             - burn escrowed oDOT
+                                 |             - DOT sent to user
+                                 |
+Global invariants / views:
+  - exchangeRate = totalBase / totalShares (1e18 scaled; 1.0 initially)
+  - previewDeposit(amount) -> sharesOut; previewRedeem(shares) -> amountOut
+  - liquidity() = address(vault).balance
+```
 
 ---
 
@@ -650,5 +728,10 @@ Orbit makes Polkadot staking simple, flexible, and rewarding. The PoC demonstrat
 
 - **A. Simple Terms**: DOT (Polkadot token), stDOT (liquid stake), rsDOT (restaking), NPoS, XCM, Substrate/Ink!, Polkadot.js.
 - **B. Sources**: Polkadot and ecosystem docs, user-provided 2025 market stats, staking dashboards, and whitepapers. Figures are illustrative and may change.
+
+---
+
+ 
+
 
 
