@@ -118,7 +118,7 @@ Orbit v1 introduces a liquid staking + restaking protocol on Polkadot Asset Hub 
 
 #### 4.3 Security 
 
-- **Pause**: owner can `pause`/`unpause`. When paused, core flows are blocked but `emergencyUnlock` lets users recover escrowed oDOT from locks.
+- **Pause**: owner can `pause`/`unpause`. When paused, core flows are blocked but `emergencyUnlock` lets users recover locked oDOT from positions.
 - **Risks**: oDOT inherits base staking risks; restaking introduces proportional penalties in future versions. v2 envisions an insurance pool.
 
 #### 4.4 Flow Diagrams
@@ -129,44 +129,37 @@ User Flow (Mermaid)
 
 ```mermaid
 flowchart TD
-  A[User Wallet] -->|deposit() value DOT| B[StakingVault.deposit()]
-  B --> C{{Accrue base rewards}}
-  C --> D{{Update totalBase}}
-  D --> E{{Compute rate = totalBase / totalShares}}
-  E --> F{{Compute sharesOut = amount * 1e18 / rate}}
-  F --> G[totalShares += sharesOut]
-  G --> H[oDOT.mint(user, sharesOut)]
+  A[User Wallet] -->|deposit DOT| B[StakingVault deposit]
+  B --> C[Accrue base rewards]
+  C --> D[Update totalBase]
+  D --> E[Compute rate]
+  E --> F[Compute sharesOut]
+  F --> G[Increase totalShares]
+  G --> H[Mint oDOT to user]
 
-  H --> I{Optional restake}
-  I -->|approve + lock(poolId, shares)| J[Escrow oDOT; record LockPosition]
-  J -->|unlock(index)| K[Mint bonus oDOT; return escrowed shares]
+  H --> I[Restake path]
+  I -->|approve and lock| J[Lock oDOT in vault; record position]
+  J -->|unlock| K[Mint bonus oDOT; return locked shares]
 
-  H --> L{Unstake}
-  L -->|approve + requestUnstake(shares)| M[Escrow oDOT; set readyAt]
-  M -->|redeem() after cooldown| N[Burn shares; totalShares -= shares; totalBase -= amountOut; send DOT]
-
-  subgraph Admin
-    O[collectFees(amount) -> feeRecipient]
-    P[slash(amount) -> totalBase - amount]
-    Q[pause/unpause; emergencyUnlock]
-  end
-  Admin --> B
+  H --> L[Unstake path]
+  L -->|approve and requestUnstake| M[Queue shares for withdrawal; set cooldown]
+  M -->|redeem after cooldown| N[Burn shares, reduce totalBase, send DOT]
 ```
 
 Token Journey (Mermaid)
 
 ```mermaid
 flowchart LR
-  U[User DOT] -- deposit() --> V[(Vault totalBase)]
-  U -. claim via rate .-> S[oDOT (shares)]
+  U[User DOT] -->|deposit| V[Vault totalBase]
+  U -->|receive| S[oDOT shares]
 
-  S -- lock(poolId, shares) --> E[Escrowed in Vault]
-  E -- unlock(index) --> S
+  S -->|lock| E[Locked in vault]
+  E -->|unlock| S
 
-  S -- requestUnstake(shares) --> X[Escrowed for Unstake]
-  X -- redeem() --> U2[User DOT back]
+  S -->|requestUnstake| X[Queued for withdrawal]
+  X -->|redeem| U2[User DOT back]
 
-  V -. exchangeRate = totalBase/totalShares .- S
+  V -.->|exchange rate| S
 ```
 
  
