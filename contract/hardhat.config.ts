@@ -12,16 +12,16 @@ const config: HardhatUserConfig = {
         compilerSource: "npm",
     },
     networks: {
-        hardhat: {
-            polkavm: true,
-            forking: {
-                url: "https://testnet-passet-hub.polkadot.io",
-            },
-            adapterConfig: {
-                adapterBinaryPath: "./bin/eth-rpc",
-                dev: true,
-            },
-        },
+        // hardhat: {
+        //     polkavm: true,
+        //     forking: {
+        //         url: "https://testnet-passet-hub.polkadot.io",
+        //     },
+        //     adapterConfig: {
+        //         adapterBinaryPath: "./bin/eth-rpc",
+        //         dev: true,
+        //     },
+        // },
 
          polkadotHubTestnet: {
         polkavm: true,

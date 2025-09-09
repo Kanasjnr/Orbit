@@ -16,5 +16,8 @@
     "chai": "^4.5.0",
     "typescript": "~5.0.4",
     "viem": "^2.37.4"
+  },
+  "dependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0"
   }
 }
