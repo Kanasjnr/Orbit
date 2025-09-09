@@ -11,13 +11,17 @@
   "description": "",
   "devDependencies": {
     "@nomicfoundation/hardhat-viem": "^2.0.6",
-    "@parity/hardhat-polkadot": "^0.1.9",
+    "@parity/hardhat-polkadot": "^0.1.11-pre1",
     "@types/chai-as-promised": "^7.1.8",
     "chai": "^4.5.0",
+    "hardhat": "^2.26.3",
+    "solc": "0.8.28",
     "typescript": "~5.0.4",
     "viem": "^2.37.4"
   },
   "dependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^6.1.0"
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
+    "dockerode": "^4.0.8",
+    "ws": "^8.18.3"
   }
 }

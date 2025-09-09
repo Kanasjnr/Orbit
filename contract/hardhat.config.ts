@@ -9,7 +9,8 @@ const { vars } = require('hardhat/config');
 const config: HardhatUserConfig = {
     solidity: "0.8.28",
     resolc: {
-        compilerSource: "npm",
+        // compilerSource: "npm",
+        version:"0.3.0"
     },
     networks: {
         // hardhat: {
