@@ -36,6 +36,8 @@ Scaffold is based on [polkadot-sdk-parachain-template](https://github.com/parity
 
 ## Build (scaffold check)
 
+Rust is pinned in `rust-toolchain.toml` to **1.93.1** (Rust ≥1.96 breaks Substrate WASM linking: `ext_storage_*` undefined symbols). Run `rustup show` in this repo so rustup installs that pin.
+
 ```bash
 rustup show
 cargo check -p pallet-parachain-template
