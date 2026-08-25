@@ -9580,6 +9580,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-odot"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "polkadot-sdk",
+ "polkadot-sdk-frame",
+ "scale-info",
+]
+
+[[package]]
 name = "pallet-offences"
 version = "44.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10604,6 +10614,7 @@ dependencies = [
  "docify",
  "hex-literal",
  "log",
+ "pallet-odot",
  "pallet-parachain-template",
  "parity-scale-codec",
  "polkadot-sdk",
