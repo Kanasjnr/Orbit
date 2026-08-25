@@ -4,9 +4,18 @@ Liquid staking for Polkadot after the June 2026 reward split: **oDOT** (nominati
 
 **Spec:** [WHITEPAPER.md](./WHITEPAPER.md). If this README and the whitepaper disagree, the whitepaper wins.
 
-Status: specification only. **Not audited. Not mainnet. Do not deposit real DOT.**
+Status: FRAME parachain scaffold on **`next-release`** (development trunk). **Not audited. Not mainnet. Do not deposit real DOT.**
 
-MVP code lands in follow-up PRs (FRAME parachain → oDOT pallet → Hub shapes → eDOT → Zombienet). See whitepaper §17.
+---
+
+## Branches
+
+| Branch | Role |
+| ------ | ---- |
+| `main` | Merged releases / stable snapshots |
+| `next-release` | **Active development** — all MVP work targets this branch |
+
+Open PRs against `next-release` unless you are cutting a release into `main`.
 
 ---
 
@@ -15,8 +24,31 @@ MVP code lands in follow-up PRs (FRAME parachain → oDOT pallet → Hub shapes 
 | Path | What it is |
 | ---- | ---------- |
 | `WHITEPAPER.md` | Protocol + economics spec (source of truth) |
+| `runtime/` | Orbit parachain runtime (Polkadot SDK template) |
+| `node/` | Optional collator node binary |
+| `pallets/template/` | Placeholder pallet (replaced by oDOT/eDOT in later PRs) |
+| `zombienet.toml` / `zombienet-omni-node.toml` | Local network configs |
+| `dev_chain_spec.json` | Dev chain spec for Omni Node + Zombienet |
 
-The legacy Solidity vault (`contract/`) and EVM frontend are removed. They were a single-vault experiment and are not the Hub dual-vault product.
+Scaffold is based on [polkadot-sdk-parachain-template](https://github.com/paritytech/polkadot-sdk-parachain-template). Product pallets come next (whitepaper §17).
+
+---
+
+## Build (scaffold check)
+
+```bash
+rustup show
+cargo check -p pallet-parachain-template
+cargo check -p parachain-template-runtime
+```
+
+Full release build is slower:
+
+```bash
+cargo build -p parachain-template-runtime --release
+```
+
+Zombienet / Omni Node install and run are documented in later PRs once the network is wired for Orbit.
 
 ---
 
