@@ -1,0 +1,8 @@
+# Pin below Rust 1.96: wasm-ld dropped --allow-undefined and breaks Substrate
+# host imports (ext_storage_*) unless the SDK has the matching fix.
+# Local verify: cargo build -p parachain-template-runtime --release
+[toolchain]
+channel = "1.93.1"
+components = ["rustfmt", "clippy", "rust-src"]
+targets = ["wasm32-unknown-unknown"]
+profile = "minimal"

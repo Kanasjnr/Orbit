@@ -10,6 +10,8 @@ runs:
         sudo apt install -y \
           protobuf-compiler \
           llvm-dev libclang-dev clang
+        # Honor repo rust-toolchain.toml (must be < 1.96 for Substrate WASM today)
+        rustup show
         rustup target add wasm32-unknown-unknown
         rustup component add rustfmt clippy rust-src
 
