@@ -4,10 +4,9 @@
 
 Version 1.0 · Technical & Economic Specification · August 2026
 
-> In June 2026 Polkadot split staking rewards into two buckets: ordinary nomination (low yield, no slashing for nominators) and validator self-stake (higher yield, slashable). Orbit lets you deposit DOT, get liquid **oDOT** for the safe nomination path or **eDOT** for the self-stake incentive path, and use either token in DeFi. Professional operators run the nodes via `StakingOperator` (they cannot move funds). Stash keys sit under Orbit multisig in v1 — that is the custody boundary, not full end-user self-custody of the stash.
+> In June 2026 Polkadot split staking rewards into two buckets: ordinary nomination (low yield, no slashing for nominators) and validator self-stake (higher yield, slashable). Orbit lets you deposit DOT, get liquid **oDOT** for the safe nomination path or **eDOT** for the self-stake incentive path, and use either token in DeFi. Professional operators run the nodes via `StakingOperator` (they cannot move funds). Stash keys sit under Orbit multisig in v1 that is the custody boundary, not full end-user self-custody of the stash.
 
 ---
-
 
 
 ## Table of Contents
@@ -57,29 +56,28 @@ Existing liquid staking products mostly wrap (1). Almost nobody packages (2) as 
 | **eDOT** | Orbit bonds your DOT as validator self-stake; pros run the node via `StakingOperator` | Yes                  | Liquid receipt + base yield + self-stake incentive |
 
 
-*Hub nominator rules: oDOT is not cut by validator slash. Custody/ops failure is a separate risk (Sections 10.1, 11) — not the same as slash.
+*Hub nominator rules: oDOT is not cut by validator slash. Custody/ops failure is a separate risk (Sections 10.1, 11) not the same as slash.
 
-**How it works under the hood (one sentence).** Orbit runs many small validator slots (~10,000 DOT self-stake each), uses oDOT capital to nominate those same slots so they get elected, and keeps stash keys under Orbit multisig while operators only get node rights via `StakingOperator` — depositors do not hold stash keys.
+**How it works under the hood (one sentence).** Orbit runs many small validator slots (~10,000 DOT self-stake each), uses oDOT capital to nominate those same slots so they get elected, and keeps stash keys under Orbit multisig while operators only get node rights via `StakingOperator` depositors do not hold stash keys.
 
-**What we are not selling.** Unlocking a 28-day lockup (that is already gone). Cloning Bifrost. Waiting for JAM (Orbit ships on today’s Hub staking; JAM is a later hook — Section 19). A day-one governance token.
+**What we are not selling.** Unlocking a 28-day lockup (that is already gone). Cloning Bifrost. Waiting for JAM (Orbit ships on today’s Hub staking; JAM is a later hook Section 19). A day-one governance token.
 
 ---
-
 
 
 ## 2. Why Now
 
 Six changes, all landing within the eleven months before this document, together make this the first moment this protocol could exist at all and the first moment it would be worth building.
 
-**1. The yield split is brand new.** A June 29, 2026 protocol parameter update rewrote how staking rewards are distributed: 45.2% of the Dynamic Allocation Pool (DAP) budget now goes to ordinary staker (nominator) rewards, 22.6% goes to a new validator self-stake incentive, and validator commission was forced to 0%. Before this, validators earned through commission on nominator rewards; after it, they earn through a separate pot that rewards their own locked capital. This is roughly eight weeks old at time of writing — the market has not yet repriced around it.
+**1. The yield split is brand new.** A June 29, 2026 protocol parameter update rewrote how staking rewards are distributed: 45.2% of the Dynamic Allocation Pool (DAP) budget now goes to ordinary staker (nominator) rewards, 22.6% goes to a new validator self-stake incentive, and validator commission was forced to 0%. Before this, validators earned through commission on nominator rewards; after it, they earn through a separate pot that rewards their own locked capital. This is roughly eight weeks old at time of writing the market has not yet repriced around it.
 
-**2. Nominator yield has quietly collapsed.** Community reporting since the reform shows nominator real yield sitting around 3%, down roughly 70% from pre-reform levels, even though headline APY displays (~6%) look largely unchanged. Section 5.4 works out exactly why those two numbers diverge — the gap comes from real yield vs. nominal APY measuring different things, and that gap widened sharply. Most retail nominators do not yet know their real return has fallen this far.
+**2. Nominator yield has quietly collapsed.** Community reporting since the reform shows nominator real yield sitting around 3%, down roughly 70% from pre-reform levels, even though headline APY displays (~6%) look largely unchanged. Section 5.4 works out exactly why those two numbers diverge the gap comes from real yield vs. nominal APY measuring different things, and that gap widened sharply. Most retail nominators do not yet know their real return has fallen this far.
 
-**3. Validator self-stake yield has simultaneously surged.** The same reporting shows a validator with the new 10,000 DOT minimum self-stake bonded going from roughly 23 DOT/day to roughly 43 DOT/day after the reform — an ~85% increase in per-validator reward. That premium is currently accessible only to people who can run a validator node.
+**3. Validator self-stake yield has simultaneously surged.** The same reporting shows a validator with the new 10,000 DOT minimum self-stake bonded going from roughly 23 DOT/day to roughly 43 DOT/day after the reform an ~85% increase in per-validator reward. That premium is currently accessible only to people who can run a validator node.
 
-**4. An operator-delegation path to that premium didn't exist until March 2026.** The StakingOperator proxy, introduced in runtime 2.1.0, is the first Polkadot primitive that lets a *solo* capital holder keep custody of their stash while a separate, removable operator key runs the validator node. Before this proxy existed, capturing self-stake yield required either running your own infrastructure or handing the stash to the node runner. A pooled self-stake product with removable operators was not previously buildable — but pooled stashes still need a custody layer. Orbit v1 holds those stashes under protocol multisig (§11); `StakingOperator` does not make the product end-user self-custodial.
+**4. An operator-delegation path to that premium didn't exist until March 2026.** The StakingOperator proxy, introduced in runtime 2.1.0, is the first Polkadot primitive that lets a *solo* capital holder keep custody of their stash while a separate, removable operator key runs the validator node. Before this proxy existed, capturing self-stake yield required either running your own infrastructure or handing the stash to the node runner. A pooled self-stake product with removable operators was not previously buildable but pooled stashes still need a custody layer. Orbit v1 holds those stashes under protocol multisig (§11); `StakingOperator` does not make the product end-user self-custodial.
 
-**5. Asset Hub consolidation just finished.** On November 4, 2025, staking, balances, and governance state all moved onto Polkadot Asset Hub, with a 100x lower existential deposit. Orbit’s product sits on top of that Hub staking surface — nominate, bond, `StakingOperator` — regardless of whether vault accounting is a FRAME parachain runtime (MVP) or a thinner Hub-adjacent layer later. Co-located staking state is the unlock; Solidity/Revive contracts are optional later, not what makes this buildable now.
+**5. Asset Hub consolidation just finished.** On November 4, 2025, staking, balances, and governance state all moved onto Polkadot Asset Hub, with a 100x lower existential deposit. Orbit’s product sits on top of that Hub staking surface nominate, bond, `StakingOperator` regardless of whether vault accounting is a FRAME parachain runtime (MVP) or a thinner Hub-adjacent layer later. Co-located staking state is the unlock; Solidity/Revive contracts are optional later, not what makes this buildable now.
 
 **6. Redemption got structurally cheaper.** Nominator unbonding fell from 28 days to roughly 24–48 hours. Every liquid staking design lives or dies on how expensive it is to maintain a redemption buffer against a slow unbonding queue; a queue that's gone from a month to under two days makes tight-peg liquid tokens dramatically cheaper to run than they were under the old regime (Section 12.1 derives exactly how much cheaper).
 
@@ -106,7 +104,7 @@ None of the existing Polkadot liquid staking tokens (Bifrost's vDOT, Acala's LDO
 
 Orbit does not replace Polkadot staking. It sits **on top of** Hub staking and **beside** DeFi apps. This is the map.
 
-**Read as target design.** Sections 3–13 describe the intended production system (Hub staking calls, multisig stashes, dual vaults). Near-term build is a Zombienet/Chopsticks PoC (§11, §17) — no mainnet custody yet. Confident present tense below means "this is how Orbit is meant to work," not "this is already live."
+**Read as target design.** Sections 3–13 describe the intended production system (Hub staking calls, multisig stashes, dual vaults). Near-term build is a Zombienet/Chopsticks PoC (§11, §17) no mainnet custody yet. Confident present tense below means "this is how Orbit is meant to work," not "this is already live."
 
 ### 3.1 Stack diagram
 
@@ -193,7 +191,7 @@ Orbit pools DOT into two staking paths and mints one liquid token for each:
 
 *Same as Section 1: no Hub slash on oDOT; custody/ops risk is separate (Sections 10–11).
 
-See Section 8 for naming. If a validator gets slashed on Hub, **eDOT** takes the hit — nominator-backed **oDOT** is unslashable under post-reform rules (Section 10). Custody failure is a separate threat from slash (Section 11).
+See Section 8 for naming. If a validator gets slashed on Hub, **eDOT** takes the hit nominator-backed **oDOT** is unslashable under post-reform rules (Section 10). Custody failure is a separate threat from slash (Section 11).
 
 Orbit's job on the protocol side (Sections 6–7): run many validator slots at ~10,000 DOT self-stake each, nominate them with oDOT capital so they actually get elected, and delegate node ops via `StakingOperator`. That's not something most retail stakers will do manually.
 
@@ -233,9 +231,9 @@ y_incentive   pot structure (lead with this)  =  share of 22.6% DAP / competing 
 | StakingOperator proxy                      | Introduced runtime 2.1.0, non-custodial, staker-revocable | Runtime upgrade, March 12, 2026     |
 
 
-These figures — especially total staked DOT, validator count, and the exact incentive-pot size — are live network state and will have moved by the time you read this. Treat every number in this document as a point-in-time snapshot to re-measure at deployment, not a constant.
+These figures — especially total staked DOT, validator count, and the exact incentive-pot size are live network state and will have moved by the time you read this. Treat every number in this document as a point-in-time snapshot to re-measure at deployment, not a constant.
 
-The DAP's **32.2% buffer/reserve** bucket is network-level issuance held outside the staker-reward and self-stake-incentive streams (Referendum 1909). Orbit does not claim that bucket as protocol revenue; oDOT/eDOT economics in this paper use only the 45.2% staker and 22.6% incentive shares. If governance later redirects reserve into staking, recompute yields — do not silently assume today's split is permanent (see §16).
+The DAP's **32.2% buffer/reserve** bucket is network-level issuance held outside the staker-reward and self-stake-incentive streams (Referendum 1909). Orbit does not claim that bucket as protocol revenue; oDOT/eDOT economics in this paper use only the 45.2% staker and 22.6% incentive shares. If governance later redirects reserve into staking, recompute yields do not silently assume today's split is permanent (see §16).
 
 ### 5.2 What "unslashable nominator, slashable self-stake" actually means
 
@@ -243,9 +241,9 @@ Before the reform, both nominator and validator stake shared exposure to slashin
 
 ### 5.3 A real, sourced data point
 
-Read the incentive layer as pot structure, not a headline APR. It is 22.6% of the DAP, shared across active validators’ self-stake via the (concave) weight function. A rough order-of-magnitude check is: annual incentive budget ÷ aggregate competing self-stake — recompute from live issuance and set size before quoting any rate.
+Read the incentive layer as pot structure, not a headline APR. It is 22.6% of the DAP, shared across active validators’ self-stake via the (concave) weight function. A rough order-of-magnitude check is: annual incentive budget ÷ aggregate competing self-stake recompute from live issuance and set size before quoting any rate.
 
-Community-reported figures (Polkadot Forum, self-reported, not independently audited) put one validator at ~23 DOT/day pre-reform and ~43 DOT/day post-reform at exactly the 10,000 DOT minimum — about ~7,300 DOT/year incremental on that self-stake alone:
+Community-reported figures (Polkadot Forum, self-reported, not independently audited) put one validator at ~23 DOT/day pre-reform and ~43 DOT/day post-reform at exactly the 10,000 DOT minimum about ~7,300 DOT/year incremental on that self-stake alone:
 
 ```
 7,300 DOT/year / 10,000 DOT  =  0.73  =  73%   (one reported calibration only)
@@ -255,7 +253,7 @@ That **~73%** is a single operator anecdote used later only to size illustrative
 
 ### 5.4 Why headline APY and real yield diverge
 
-Wallets typically display a nominal staking APY computed as (annual DOT rewards paid) / (DOT staked) community reporting puts this around 6% post-reform (§2, point 2). But DOT's total supply is also inflating, at roughly 3.1% per year following the March 2026 halving (annual issuance fell from ~120M to ~55M DOT, per §5.1). A staker's real return is not the nominal reward rate itself — it's how fast their share of total supply grows, because a non-staking holder's share shrinks by exactly the inflation rate every year, while a staker's DOT balance grows by the nominal reward rate.
+Wallets typically display a nominal staking APY computed as (annual DOT rewards paid) / (DOT staked) community reporting puts this around 6% post-reform (§2, point 2). But DOT's total supply is also inflating, at roughly 3.1% per year following the March 2026 halving (annual issuance fell from ~120M to ~55M DOT, per §5.1). A staker's real return is not the nominal reward rate itself it's how fast their share of total supply grows, because a non-staking holder's share shrinks by exactly the inflation rate every year, while a staker's DOT balance grows by the nominal reward rate.
 
 If y_nom is the nominal reward rate and π is the network-wide inflation rate, a staker's share of total supply grows at:
 
@@ -269,10 +267,9 @@ Plugging in y_nom ≈ 6% and π ≈ 3.1%:
 real yield  ≈  6.0%  −  3.1%  ≈  2.9%
 ```
 
-This is the ~3% real yield figure used throughout this document. It is not an independently-sourced number — it is the direct arithmetic consequence of the nominal reward rate and the post-halving inflation rate. It is also *why* a headline APY that looks roughly unchanged from before the reform can coexist with a real return that collapsed: the number the reform changed is the numerator paid to nominators, and the gap retail stakers actually feel is between that nominal number and the inflation rate they're implicitly being compared against — a gap that widened sharply once the nominal rate fell while inflation stayed roughly where it was.
+This is the ~3% real yield figure used throughout this document. It is not an independently-sourced number it is the direct arithmetic consequence of the nominal reward rate and the post-halving inflation rate. It is also *why* a headline APY that looks roughly unchanged from before the reform can coexist with a real return that collapsed: the number the reform changed is the numerator paid to nominators, and the gap retail stakers actually feel is between that nominal number and the inflation rate they're implicitly being compared against a gap that widened sharply once the nominal rate fell while inflation stayed roughly where it was.
 
 ---
-
 
 
 ## 6. The Self-Stake Incentive Curve: Mathematics
@@ -308,7 +305,7 @@ Every formula from here through Section 13 is stated in these terms, so each der
 
 ### 6.1 The weight function
 
-Referendum 1909 specifies that the self-stake incentive budget is distributed "proportionally to a weight derived from each validator's self-stake" using a function chosen to be concave, explicitly to stop large self-stakers from capturing a disproportionate share. The exact functional form has not been published in full technical detail as of this writing. We model it, as the reform's own stated design goal implies, with a square-root weight — a standard, well-behaved concave function and the natural minimal choice for "reward self-stake, but with diminishing returns":
+Referendum 1909 specifies that the self-stake incentive budget is distributed "proportionally to a weight derived from each validator's self-stake" using a function chosen to be concave, explicitly to stop large self-stakers from capturing a disproportionate share. The exact functional form has not been published in full technical detail as of this writing. We model it, as the reform's own stated design goal implies, with a square-root weight a standard, well-behaved concave function and the natural minimal choice for "reward self-stake, but with diminishing returns":
 
 ```
 w(σ_i)  =  √σ_i
@@ -336,9 +333,9 @@ Multiplying both sides by k, and using σ_1 + ... + σ_k = C (the split sums to 
 k · w(C/k)   ≥   Σ_i w(σ_i)          for ANY split σ_1, ..., σ_k summing to C
 ```
 
-with equality exactly when the split is even (σ_i = C/k for every i) — a direct consequence of w's strict concavity. So k·w(C/k) is the maximum total weight achievable across k slots, and it is achieved by splitting evenly, never by splitting unevenly. This proves: don't concentrate stake unevenly across the slots you already have — spread it evenly across them.
+with equality exactly when the split is even (σ_i = C/k for every i) a direct consequence of w's strict concavity. So k·w(C/k) is the maximum total weight achievable across k slots, and it is achieved by splitting evenly, never by splitting unevenly. This proves: don't concentrate stake unevenly across the slots you already have spread it evenly across them.
 
-**(b) More slots beats fewer slots, for the same total capital.** This is a different claim — not about how to split among a fixed k, but about whether increasing k helps at all. Take the general power-law form w(σ) = σ^p for p ∈ (0,1); p = 1/2 recovers the square-root case in §6.1, and every member of this family is strictly concave and increasing. Per the reform's own stated anti-capture design goal, the true function belongs to this family regardless of its exact p (§6.5 checks sensitivity to p directly). With even splitting (from part (a) above), total weight as a function of k is:
+**(b) More slots beats fewer slots, for the same total capital.** This is a different claim not about how to split among a fixed k, but about whether increasing k helps at all. Take the general power-law form w(σ) = σ^p for p ∈ (0,1); p = 1/2 recovers the square-root case in §6.1, and every member of this family is strictly concave and increasing. Per the reform's own stated anti-capture design goal, the true function belongs to this family regardless of its exact p (§6.5 checks sensitivity to p directly). With even splitting (from part (a) above), total weight as a function of k is:
 
 ```
 W(k)  =  k · w(C/k)  =  k · (C/k)^p  =  C^p · k^(1−p)
@@ -360,9 +357,9 @@ T̄  =  883,000,000 / 600  ≈  1,470,000 DOT   (≈ 1.47M DOT)
 
 The actual threshold to be the marginal elected validator (the cheapest slot to win) is typically below this mean, since backing is not evenly distributed but the precise current threshold is live state that must be measured at deployment, not assumed. Call it T_min.
 
-Each new slot needs enough **total** backing (self-stake + nomination) to win election — not just 10,000 DOT of bond. **oDOT** deposits supply that nomination side; **eDOT** supplies the bond. The two tokens work together: eDOT can't earn if its validators aren't elected, and oDOT nominates Orbit's own validators instead of random names on the leaderboard.
+Each new slot needs enough **total** backing (self-stake + nomination) to win election not just 10,000 DOT of bond. **oDOT** deposits supply that nomination side; **eDOT** supplies the bond. The two tokens work together: eDOT can't earn if its validators aren't elected, and oDOT nominates Orbit's own validators instead of random names on the leaderboard.
 
-For worked examples below we pick an **illustrative** clearing threshold `T_min ≈ 1,440,000 DOT` — slightly below the ~1.47M average, as marginal elected validators typically sit under the mean. This is a modeling choice to re-measure at deployment, not a figure read off-chain.
+For worked examples below we pick an **illustrative** clearing threshold `T_min ≈ 1,440,000 DOT` slightly below the ~1.47M average, as marginal elected validators typically sit under the mean. This is a modeling choice to re-measure at deployment, not a figure read off-chain.
 
 ### 6.4 Combined per-slot yield, worked example
 
@@ -370,7 +367,7 @@ Take a single Orbit-controlled validator slot with:
 
 - Self-stake σ = 10,000 DOT (the minimum)
 - Total backing T = T_min ≈ 1,440,000 DOT (illustrative clearing threshold from §6.3)
-- Nominated backing ν* = T_min − σ ≈ 1,430,000 DOT (matches §7.0)
+- Nominated backing ν* = T_min σ ≈ 1,430,000 DOT (matches §7.0)
 - Base staker yield y_base ≈ 3% (§5.4)
 
 The slot earns base yield on its full backing (σ + ν), plus the self-stake incentive share on σ alone. Using the **anecdotal** calibration from §5.3 (~7,300 DOT/year on a 10,000 DOT self-stake ≈ ~73% on self-stake only — one reported data point, not a forecast):
@@ -391,7 +388,7 @@ Blended across the full σ + ν = 1,440,000 DOT (1.44M DOT) backing that slot re
 50,500 / 1,440,000  ≈  3.50%
 ```
 
-The self-stake slice is where the incentive pot concentrates (forum calibration ~73% on that 10k — anecdote only, §5.3), which is why Orbit issues **eDOT** separately instead of blending everything into one token at ~3.5% (Section 8.4).
+The self-stake slice is where the incentive pot concentrates (forum calibration ~73% on that 10k anecdote only, §5.3), which is why Orbit issues **eDOT** separately instead of blending everything into one token at ~3.5% (Section 8.4).
 
 **Reading the 50,500 DOT/yr example.**
 
@@ -415,17 +412,16 @@ Because p is not publicly confirmed, it's worth checking how much the §6.4 conc
 | 1.0 (linear — ruled out) | 1.00×                    | No splitting benefit; excluded by the reform's own stated anti-capture design goal |
 
 
-Across the entire plausible range the reform's stated goal permits (p < 1), the qualitative recommendation from §7 — maximize slot count k at minimum viable self-stake — holds regardless of exactly where p sits. Only the *magnitude* of the multi-slot splitting benefit (§6.2) and the *shape* of equilibrium compression (§13.5) are sensitive to p.
+Across the entire plausible range the reform's stated goal permits (p < 1), the qualitative recommendation from §7 maximize slot count k at minimum viable self-stake holds regardless of exactly where p sits. Only the *magnitude* of the multi-slot splitting benefit (§6.2) and the *shape* of equilibrium compression (§13.5) are sensitive to p.
 
-The forum ~73% calibration (§5.3) does **not** inherit p — it is an empirical anecdote, independent of the weight-function exponent. What *does* inherit p = 0.5 as a modeling assumption: splitting ratios in §6.2 and Scenario B compression in §13.5. Re-derive those from runtime `w(σ)` before mainnet claims; do not treat 73% as model-output.
+The forum ~73% calibration (§5.3) does **not** inherit p it is an empirical anecdote, independent of the weight-function exponent. What *does* inherit p = 0.5 as a modeling assumption: splitting ratios in §6.2 and Scenario B compression in §13.5. Re-derive those from runtime `w(σ)` before mainnet claims; do not treat 73% as model-output.
 
 ---
 
 
-
 ## 7. Optimal Capital Allocation
 
-oDOT and eDOT are separate vaults with separate depositors — capital is **not** one fungible pool `C` the protocol can freely re-split. The math below is the *target slot recipe* once both pools can fund a slot: how to size `σ` (from eDOT) and `ν` (from oDOT). Live minting must respect deposit mix (Section 7.3).
+oDOT and eDOT are separate vaults with separate depositors capital is **not** one fungible pool `C` the protocol can freely re-split. The math below is the *target slot recipe* once both pools can fund a slot: how to size `σ` (from eDOT) and `ν` (from oDOT). Live minting must respect deposit mix (Section 7.3).
 
 Given available eDOT capital C_e and oDOT capital C_o, the allocator’s problem for openable slots is:
 
@@ -454,13 +450,13 @@ g(σ, ν)  =  (σ + ν)·y_base   +   σ^p · B / Σ_j σ_j^p
 
 Two structural facts pin down the solution without an interior first-order condition:
 
-**On σ:** the stated objective `g` is pure expected yield — it has **no risk term**. Holding a *single* slot's total backing fixed, raising σ would actually raise incentive weight. The floor solution does **not** come from that single-slot FOC.
+**On σ:** the stated objective `g` is pure expected yield it has **no risk term**. Holding a *single* slot's total backing fixed, raising σ would actually raise incentive weight. The floor solution does **not** come from that single-slot FOC.
 
 The binding argument is the **cross-slot** one from §6.2: under concave `w`, the marginal DOT of eDOT capital earns more total weight as the *first* 10,000 on a new elected slot than as incremental self-stake on an already-min-sized slot. Combined with the election floor σ ≥ 10,000, the allocator's corner is σ* = 10,000 — maximize `k`, don't fatten existing bonds. Slash risk (§10) is a *separate* reason the same corner is attractive; it is not inside the §7 objective as written.
 
-**On ν:** ν enters g only through the linear base-yield term (σ+ν)·y_base — it has no effect on the incentive share at all. Its sole function is satisfying the election constraint σ+ν ≥ T_min. Since ν is costly (it is capital that could instead back a different slot) and contributes nothing beyond clearing that constraint, the optimum is exactly ν* = T_min − σ — a second corner solution, this time at the *lower* bound of the constraint rather than an unconstrained interior point.
+**On ν:** ν enters g only through the linear base-yield term (σ+ν)·y_base it has no effect on the incentive share at all. Its sole function is satisfying the election constraint σ+ν ≥ T_min. Since ν is costly (it is capital that could instead back a different slot) and contributes nothing beyond clearing that constraint, the optimum is exactly ν* = T_min − σ — a second corner solution, this time at the *lower* bound of the constraint rather than an unconstrained interior point.
 
-**On k:** substituting both corner solutions back in, each slot costs exactly T_min of capital and contributes weight σ^p = 10,000^p, a constant independent of k. Total incentive-budget weight is therefore k·10,000^p — linear and strictly increasing in k while total base yield on funded slots is k·T_min·y_base, independent of how that capital is labeled across vaults. Increasing k (subject to both vaults funding σ* and ν*) therefore strictly increases total incentive revenue while leaving base revenue unchanged, so k should be maximized — formalizing, via the objective's own structure, the same conclusion reached by direct substitution in §6.2.
+**On k:** substituting both corner solutions back in, each slot costs exactly T_min of capital and contributes weight σ^p = 10,000^p, a constant independent of k. Total incentive-budget weight is therefore k·10,000^p linear and strictly increasing in k while total base yield on funded slots is k·T_min·y_base, independent of how that capital is labeled across vaults. Increasing k (subject to both vaults funding σ* and ν*) therefore strictly increases total incentive revenue while leaving base revenue unchanged, so k should be maximized — formalizing, via the objective's own structure, the same conclusion reached by direct substitution in §6.2.
 
 **Resulting solution (per openable slot):**
 
@@ -470,7 +466,7 @@ The binding argument is the **cross-slot** one from §6.2: under concave `w`, th
 k*  =  min( ⌊C_e / σ*⌋, ⌊C_o / ν*⌋ )  limited by the scarcer vault
 ```
 
-So the resolved strategy is: run as many validator slots as **both** vaults allow, each at minimum viable self-stake and minimum viable nomination to clear election. This matches the risk-minimizing posture in Section 10 when the target mix is achieved — the two objectives point the same direction.
+So the resolved strategy is: run as many validator slots as **both** vaults allow, each at minimum viable self-stake and minimum viable nomination to clear election. This matches the risk-minimizing posture in Section 10 when the target mix is achieved the two objectives point the same direction.
 
 **What this means.**
 
@@ -480,16 +476,15 @@ So the resolved strategy is: run as many validator slots as **both** vaults allo
 **What Orbit does:** automate this every era — eDOT funds `σ`, oDOT funds `ν`, and pause or queue mints when the mix breaks (Section 7.3).
 
 
-
 ### 7.1 A margin above the floor
 
 Purely mechanically, sitting exactly at the 10,000 DOT minimum risks falling below it (and being permissionlessly chilled) on any negative price or reward-calculation drift. In practice the protocol should hold a small operational margin above 10,000 DOT per slot — this trades a small amount of theoretical weight-efficiency for materially lower operational risk, and should be sized empirically against observed self-stake volatility, not fixed by formula.
 
 ### 7.2 Operational cost is the real constraint, not math
 
-Every additional slot means another StakingOperator relationship, another set of session keys, another node to monitor for equivocation/downtime risk, and another election threshold to track. The math in §7.0 says "more slots is strictly better"; it does not account for the marginal cost of managing the k-th relationship. In practice k is capped by operational capacity **and** by vault mix (Section 7.3), not by the formula alone — and that operational management (not the yield formula itself) is what a pooled protocol can do that an individual retail depositor cannot, which is the actual moat this protocol is selling.
+Every additional slot means another StakingOperator relationship, another set of session keys, another node to monitor for equivocation/downtime risk, and another election threshold to track. The math in §7.0 says "more slots is strictly better"; it does not account for the marginal cost of managing the k-th relationship. In practice k is capped by operational capacity **and** by vault mix (Section 7.3), not by the formula alone and that operational management (not the yield formula itself) is what a pooled protocol can do that an individual retail depositor cannot, which is the actual moat this protocol is selling.
 
-**Self-cannibalization.** Incentive share is `B · w(σ_i) / Σ_j w(σ_j)` over the *whole* active set. Every new Orbit slot adds to the denominator. Growing `k` (Orbit's own roadmap) compresses `y_incentive` for Orbit's existing slots even with zero new external competitors — the same dynamic §13.5 models for outside capital. Treat "maximize k" as jointly maximizing weight *and* accepting faster pot dilution; publish live per-slot incentive as `k` scales.
+**Self-cannibalization.** Incentive share is `B · w(σ_i) / Σ_j w(σ_j)` over the *whole* active set. Every new Orbit slot adds to the denominator. Growing `k` (Orbit's own roadmap) compresses `y_incentive` for Orbit's existing slots even with zero new external competitors the same dynamic §13.5 models for outside capital. Treat "maximize k" as jointly maximizing weight *and* accepting faster pot dilution; publish live per-slot incentive as `k` scales.
 
 ### 7.3 Capital mix and circuit breakers
 
@@ -497,7 +492,7 @@ Target per-slot mix: `σ* : ν* ≈ 10,000 : (T_min − 10,000)` (roughly ~1 : ~
 
 **If eDOT outruns oDOT** (not enough nomination to elect bonded slots): pause or queue **eDOT** mints; do not open under-backed slots; optionally raise the oDOT fee share / incentives until `C_o` catches up.
 
-**If oDOT outruns eDOT** (excess nomination, few bonds): stop opening new slots; oDOT still earns base yield as nominator capital; optionally pause further oDOT growth into non-Orbit validators only if policy says Orbit-only nomination — default is keep nominating Orbit slots first, then overflow policy documented at launch.
+**If oDOT outruns eDOT** (excess nomination, few bonds): stop opening new slots; oDOT still earns base yield as nominator capital; optionally pause further oDOT growth into non-Orbit validators only if policy says Orbit-only nomination default is keep nominating Orbit slots first, then overflow policy documented at launch.
 
 **Hard rules (v1 intent):**
 
@@ -506,7 +501,6 @@ Target per-slot mix: `σ* : ν* ≈ 10,000 : (T_min − 10,000)` (roughly ~1 : ~
 3. Election shortfall → chill/unbond path for excess eDOT rather than silent unelected bonds earning nothing.
 
 ---
-
 
 
 ## 8. Token Design & Naming
@@ -518,7 +512,7 @@ Target per-slot mix: `σ* : ν* ≈ 10,000 : (T_min − 10,000)` (roughly ~1 : ~
 
 | Token    | Backing                     | Slashable?                                    | What it's for                                                                      |
 | -------- | --------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------- |
-| **oDOT** | Pooled nomination           | No Hub slash (custody risk separate — §10.1, §11) | Hold, trade, use in DeFi; steady base yield                                   |
+| **oDOT** | Pooled nomination           | No Hub slash (custody risk separate §10.1, §11) | Hold, trade, use in DeFi; steady base yield                                   |
 | **eDOT** | Pooled validator self-stake | Yes (first in line if a validator misbehaves) | Higher yield from the self-stake incentive; you accept slash risk for that premium |
 
 
@@ -538,15 +532,14 @@ A third token, a governance/fee-accrual token (working name ORB), is reserved as
 
 ### 8.4 Why two tokens instead of one blended LST
 
-If you mixed nomination and self-stake into a single receipt, the blended rate on a full validator slot is only ~3.5% (Section 6.4) — barely above plain staking — because self-stake is tiny next to the nomination needed for election. Two tokens don't change how much DOT the protocol earns; they let **you** choose: **oDOT** if you want no slash exposure, **eDOT** if you want the self-stake incentive and accept slash risk.
+If you mixed nomination and self-stake into a single receipt, the blended rate on a full validator slot is only ~3.5% (Section 6.4) barely above plain staking because self-stake is tiny next to the nomination needed for election. Two tokens don't change how much DOT the protocol earns; they let **you** choose: **oDOT** if you want no slash exposure, **eDOT** if you want the self-stake incentive and accept slash risk.
 
 ---
 
 
-
 ## 9. Share Accounting & Exchange-Rate Mathematics
 
-Both tokens follow standard share-token accounting: each token represents a claim on a growing pool, and the exchange rate — not the token balance — carries yield.
+Both tokens follow standard share-token accounting: each token represents a claim on a growing pool, and the exchange rate not the token balance carries yield.
 
 ### 9.1 Mint and exchange rate
 
@@ -565,7 +558,7 @@ V_T  +=  d
 S_T  +=  ΔS_T
 ```
 
-Rewards accrue by increasing V_T directly (via observed on-chain staking reward events) without minting new supply. Since S_T is unchanged by a reward-accrual event and V_T only increases from one, rate_T = V_T/S_T is non-decreasing between mint/redeem events, and strictly increasing whenever a reward event occurs — this is a direct consequence of how accrual is defined, not a separate assumption.
+Rewards accrue by increasing V_T directly (via observed on-chain staking reward events) without minting new supply. Since S_T is unchanged by a reward-accrual event and V_T only increases from one, rate_T = V_T/S_T is non-decreasing between mint/redeem events, and strictly increasing whenever a reward event occurs this is a direct consequence of how accrual is defined, not a separate assumption.
 
 **Hub routing into each vault.** Era rewards are attributed by Hub account, not re-split inside Orbit. Nominator-path rewards on oDOT-backed nomination credit `V_oDOT`. Base yield on bonded self-stake `σ` plus the self-stake incentive credit `V_eDOT`. Orbit does not take a slot's total `(σ+ν)·y_base` and blend it across vaults after the fact.
 
@@ -578,7 +571,6 @@ When you deposit 100 DOT at rate 1.0 you get 100 shares. When rewards make `V` g
 **What Orbit does:** update `V` from Hub staking reward events and mint/burn `S` only on deposit/redeem.
 
 
-
 ### 9.2 Redemption
 
 Redeeming s shares of T:
@@ -589,20 +581,19 @@ S_T   −=  s
 V_T   −=  d_out
 ```
 
-subject to the liquidity constraints in §12 — redemption of eDOT in particular may need to queue behind the (now short, ~24–48h) unbonding period if the instant-liquidity buffer is exhausted.
+subject to the liquidity constraints in §12 redemption of eDOT in particular may need to queue behind the (now short, ~24–48h) unbonding period if the instant-liquidity buffer is exhausted.
 
 ### 9.3 Inflation-attack protection, formally
 
 The classic first-depositor share-inflation attack: an attacker mints a tiny amount of shares first (e.g. 1 unit), then donates a large amount of DOT directly to the pool's underlying balance without minting shares, artificially inflating rate_T = V_T/S_T. A subsequent honest depositor's shares are then computed as ⌊d · S_T / V_T⌋, which rounds down to zero if V_T has been inflated far enough relative to the honest depositor's size — letting the attacker later redeem their 1 share for a rate_T that now effectively includes the victim's donated-in deposit.
 
-The standard mitigation — burning a large minimum initial deposit S_0 to a null address at pool genesis — works because it fixes a floor under S_T that the attacker cannot reduce. With S_T ≥ S_0 always, a legitimate depositor's maximum possible loss from share-rounding is bounded: at most one unit of share, worth at most rate_T DOT — a fixed, small, protocol-chosen amount, *not* proportional to the size of the attacker's donation. Choosing S_0 large (equivalent to several thousand DOT, burned) makes the attacker's own capital-at-risk large relative to any plausible extractable profit, while the maximum possible victim loss stays capped at that same fixed, tiny amount no matter how much the attacker donates. This is the same mitigation used by the ERC-4626 tokenized-vault standard, applied here independently to both oDOT and eDOT.
+The standard mitigation burning a large minimum initial deposit S_0 to a null address at pool genesis works because it fixes a floor under S_T that the attacker cannot reduce. With S_T ≥ S_0 always, a legitimate depositor's maximum possible loss from share-rounding is bounded: at most one unit of share, worth at most rate_T DOT a fixed, small, protocol-chosen amount, *not* proportional to the size of the attacker's donation. Choosing S_0 large (equivalent to several thousand DOT, burned) makes the attacker's own capital-at-risk large relative to any plausible extractable profit, while the maximum possible victim loss stays capped at that same fixed, tiny amount no matter how much the attacker donates. This is the same mitigation used by the ERC-4626 tokenized-vault standard, applied here independently to both oDOT and eDOT.
 
 ### 9.4 Monotonicity under slashing
 
-rate_eDOT is monotonically increasing *except* on a slash event, when V_eDOT drops by the slashed amount instantly. rate_oDOT is designed to never decrease from Hub slashing at all — under nominator rules slash cannot hit oDOT backing; see §10.1A. (Custody failure is a separate threat — §10.1B / §11.)
+rate_eDOT is monotonically increasing *except* on a slash event, when V_eDOT drops by the slashed amount instantly. rate_oDOT is designed to never decrease from Hub slashing at all under nominator rules slash cannot hit oDOT backing; see §10.1A. (Custody failure is a separate threat §10.1B / §11.)
 
 ---
-
 
 
 ## 10. Risk Model: Slashing, Coverage
@@ -614,10 +605,10 @@ rate_eDOT is monotonically increasing *except* on a slash event, when V_eDOT dro
 **(A) Hub slashing (protocol rule).** Post-reform, nominator stake is **unslashable**. A slash of size L against a validator slot's self-stake hits **eDOT only**:
 
 1. L is deducted from that slot's contribution to V_eDOT, capped at that stash's bonded self-stake (a validator cannot lose more than it bonded on Hub).
-2. Within the **eDOT pool**, that loss is socialized across eDOT sharers (all eDOT holders take a pro-rata NAV hit) — this is pool accounting, not Hub clawing unbonded funds beyond the stash.
+2. Within the **eDOT pool**, that loss is socialized across eDOT sharers (all eDOT holders take a pro-rata NAV hit) this is pool accounting, not Hub clawing unbonded funds beyond the stash.
 3. **V_oDOT is not reduced by Hub slash.** Nomination backing stays under nominator rules. oDOT's rate should not fall because a validator was slashed.
 
-**(B) Custody / ops failure (Orbit trust boundary).** Theft, malicious multisig, mis-accounting, or a buggy vault can impair **either** pool. That is not "slash waterfall into oDOT" — it is a separate security failure mode addressed in Section 11. Diversification of operators (independent infra / geography) still matters for reducing correlated **slash** events on eDOT (§10.4); it does not make oDOT slashable.
+**(B) Custody / ops failure (Orbit trust boundary).** Theft, malicious multisig, mis-accounting, or a buggy vault can impair **either** pool. That is not "slash waterfall into oDOT" it is a separate security failure mode addressed in Section 11. Diversification of operators (independent infra / geography) still matters for reducing correlated **slash** events on eDOT (§10.4); it does not make oDOT slashable.
 
 
 ### 10.2 Why the exposure is small by construction
@@ -634,19 +625,19 @@ At the **target** minimum-self-stake, minimum-clearing-nomination mix, using the
 φ_target  ≈  10,000 / 1,440,000  ≈  0.69%
 ```
 
-That figure is a **design target**, not an automatic outcome. Live `φ` = Σσ/(Σσ+Σν) moves with deposit mix; circuit breakers in §7.3 exist so the protocol does not pretend otherwise. At target mix, even a **100% loss across every Orbit self-stake simultaneously** would impair about 0.69% of total protocol TVL (slashable layer only) — and Hub rules still keep nominator oDOT out of that slash. Track live `φ` as an ops metric.
+That figure is a **design target**, not an automatic outcome. Live `φ` = Σσ/(Σσ+Σν) moves with deposit mix; circuit breakers in §7.3 exist so the protocol does not pretend otherwise. At target mix, even a **100% loss across every Orbit self-stake simultaneously** would impair about 0.69% of total protocol TVL (slashable layer only) and Hub rules still keep nominator oDOT out of that slash. Track live `φ` as an ops metric.
 
 **What this means.** At target mix, ~0.7% of TVL is slashable self-stake; **eDOT holders** still bear 100% of that thin layer. **What Orbit does:** keep `σ` small, grow `k`, and enforce vault mix so live `φ` stays near `φ_target`.
 
 ### 10.3 Coverage ratio and eDOT's real risk
 
-φ is Orbit's protocol-wide exposure, but eDOT holders' personal exposure is different: they hold 100% of the slashable layer, concentrated. eDOT's effective "coverage ratio" — how much of a single-slot total slash it can absorb before impairing principal — is a direct function of how many independent slots eDOT capital is spread across. A slash against one of k diversified slots impairs eDOT's pool by roughly 1/k of the slot's self-stake relative to total eDOT backing, not the full amount. This is standard insurance-style diversification and is the reason §7's "maximize k" conclusion matters as much for eDOT's own risk profile as for protocol-wide yield.
+φ is Orbit's protocol-wide exposure, but eDOT holders' personal exposure is different: they hold 100% of the slashable layer, concentrated. eDOT's effective "coverage ratio" how much of a single-slot total slash it can absorb before impairing principal is a direct function of how many independent slots eDOT capital is spread across. A slash against one of k diversified slots impairs eDOT's pool by roughly 1/k of the slot's self-stake relative to total eDOT backing, not the full amount. This is standard insurance-style diversification and is the reason §7's "maximize k" conclusion matters as much for eDOT's own risk profile as for protocol-wide yield.
 
 ### 10.4 Diversification as variance reduction, formally
 
-§10.2 showed that spreading self-stake thin across many slots keeps *expected* slashable exposure (φ) small. A separate, complementary argument shows it also reduces the *variance* of eDOT's realized loss — a different risk property, and one that matters independently.
+§10.2 showed that spreading self-stake thin across many slots keeps *expected* slashable exposure (φ) small. A separate, complementary argument shows it also reduces the *variance* of eDOT's realized loss a different risk property, and one that matters independently.
 
-Model each of Orbit's k validator slots as facing an independent slash event in a given period with small probability q and, conditional on a slash, an expected severity fraction ℓ of that slot's self-stake (real severity varies by fault type — minor unresponsiveness slashes are far smaller than equivocation slashes; ℓ here is a single expected-severity simplification). Total realized loss across k slots is:
+Model each of Orbit's k validator slots as facing an independent slash event in a given period with small probability q and, conditional on a slash, an expected severity fraction ℓ of that slot's self-stake (real severity varies by fault type minor unresponsiveness slashes are far smaller than equivocation slashes; ℓ here is a single expected-severity simplification). Total realized loss across k slots is:
 
 ```
 L  =  Σ (i = 1 to k) X_i,     X_i  =  { ℓ·σ  with probability q
@@ -662,10 +653,9 @@ Expected loss scales **linearly** with k — diversification cannot reduce how m
 sd(L) / (k·σ)   =   √(k·q(1−q)) · ℓσ  /  (k·σ)   =   ℓ · √( q(1−q) / k )   ∝   1/√k
 ```
 
-This is the standard insurance-pooling result: diversifying an i.i.d. risk across k independent units leaves the *expected* loss ratio unchanged but shrinks its *standard deviation* by 1/√k. In other words — spreading self-stake across many validators doesn't lower how much loss eDOT should expect to take on average, but it makes any single period's realized loss far more predictable and far less likely to be a severe outlier. This is the formal justification for the "independent operators, independent infrastructure, independent geography" requirement for eDOT slash risk: the 1/√k benefit is real only to the extent slash events across slots are actually statistically independent. Correlated infrastructure — many slots on the same cloud provider, or the same client software bug — breaks the independence assumption entirely and should be actively managed as an operational risk, not assumed away by slot count alone.
+This is the standard insurance-pooling result: diversifying an i.i.d. risk across k independent units leaves the *expected* loss ratio unchanged but shrinks its *standard deviation* by 1/√k. In other words spreading self-stake across many validators doesn't lower how much loss eDOT should expect to take on average, but it makes any single period's realized loss far more predictable and far less likely to be a severe outlier. This is the formal justification for the "independent operators, independent infrastructure, independent geography" requirement for eDOT slash risk: the 1/√k benefit is real only to the extent slash events across slots are actually statistically independent. Correlated infrastructure many slots on the same cloud provider, or the same client software bug — breaks the independence assumption entirely and should be actively managed as an operational risk, not assumed away by slot count alone.
 
 ---
-
 
 
 ## 11. Protocol Architecture & Trust Model
@@ -674,9 +664,9 @@ This is the standard insurance-pooling result: diversifying an i.i.d. risk acros
 
 ### 11.1 Where this lives
 
-Staking, balances, and governance live on Polkadot Asset Hub (Nov 2025 consolidation). Hub is still where Orbit **calls staking** — nominate, bond, `StakingOperator`.
+Staking, balances, and governance live on Polkadot Asset Hub (Nov 2025 consolidation). Hub is still where Orbit **calls staking** nominate, bond, `StakingOperator`.
 
-**MVP path (this quarter):** Orbit vault accounting is a **FRAME parachain runtime** spun on **Zombienet** — pallets for oDOT/eDOT shares, exchange rate, slash accounting, operator registry. **No Solidity / Revive contracts for MVP.** Chopsticks forks Hub staking state so the PoC can talk to real storage shapes. Local XCM stubs are a **lab convenience**, not a claim that production must be cross-chain — the §2 "staking on Hub" thesis still holds: production staking extrinsics target Hub; a separate parachain is optional.
+**MVP path (this quarter):** Orbit vault accounting is a **FRAME parachain runtime** spun on **Zombienet** pallets for oDOT/eDOT shares, exchange rate, slash accounting, operator registry. **No Solidity / Revive contracts for MVP.** Chopsticks forks Hub staking state so the PoC can talk to real storage shapes. Local XCM stubs are a **lab convenience**, not a claim that production must be cross-chain the §2 "staking on Hub" thesis still holds: production staking extrinsics target Hub; a separate parachain is optional.
 
 **Production:** staking stays on Hub. Preferred path if pallets prove unnecessary: thin Hub-adjacent accounting (minimizes XCM). Alternate: graduate the Zombienet runtime to Paseo → mainnet parachain if custom pallets win (Phase 4, Section 18).
 
@@ -684,16 +674,16 @@ See **Section 3** for the plug-in map. DeFi order: Hydration peg → Acala/HOLLA
 
 ### 11.2 The real trust boundary: stash key custody
 
-There is currently no turnkey path for a vault (pallet or contract) to fully own a validator stash and call staking extrinsics without a human key set. v1 custody of each validator slot's stash key is the actual trust boundary — not a solved problem the accounting layer abstracts away. The StakingOperator proxy solves the *operator* side non-custodially (the node-running operator can never move funds and can be revoked instantly) — it does not solve who holds the stash key itself.
+There is currently no turnkey path for a vault (pallet or contract) to fully own a validator stash and call staking extrinsics without a human key set. v1 custody of each validator slot's stash key is the actual trust boundary not a solved problem the accounting layer abstracts away. The StakingOperator proxy solves the *operator* side non-custodially (the node-running operator can never move funds and can be revoked instantly) it does not solve who holds the stash key itself.
 
 **v1 custody sketch (to be finalized before mainnet, not a production commitment yet):** target **3-of-5** threshold multisig; signers drawn from distinct legal entities / ops teams with no shared cloud account, hardware vendor, or jurisdiction where practical; signer set and rotation policy published with the audit. Until that publish, treat custody as **unsolved naming** — "Orbit multisig" is a role, not a named board.
 
 Mitigations for v1:
 
-- Stash keys held under threshold multisig, not a single signer (illustrative 3-of-5 above — confirm at launch).
+- Stash keys held under threshold multisig, not a single signer (illustrative 3-of-5 above confirm at launch).
 - Every stash address published on-chain and independently verifiable against the protocol's declared validator set.
 - NAV (pool value for oDOT and eDOT) verifiable against real Hub staking-ledger state, not self-reported by the custody layer (see NAV freshness below).
-- **Escape hatch (goal / phased):** v1 documents a withdrawal-favoring incident playbook (multisig rotation, public stash list, pause mints). A path that unwinds user positions **without** active multisig cooperation (e.g. timelocked escape extrinsic, guardian set, or pre-authorized unbond) is a **v2 / custody-harden** item (Section 11.3) — not a claim that v1 already has trustless forced exit.
+- **Escape hatch (goal / phased):** v1 documents a withdrawal-favoring incident playbook (multisig rotation, public stash list, pause mints). A path that unwinds user positions **without** active multisig cooperation (e.g. timelocked escape extrinsic, guardian set, or pre-authorized unbond) is a **v2 / custody-harden** item (Section 11.3) not a claim that v1 already has trustless forced exit.
 
 #### NAV source of truth and stale-state pauses
 
@@ -707,11 +697,11 @@ If vault accounting lives on an Orbit parachain while stake lives on Hub, `rate_
 
 ### 11.3 Roadmap item: tighter custody
 
-If staking precompiles (or pallet-native custody patterns) land such that Orbit can hold stash authority without a human multisig, migrate there — and ship a real cooperation-free escape hatch at that point. Until then, multisig stash + `StakingOperator` is the v1 model. Not a v1 claim that custody is fully automated or that users can force-exit without the custody layer.
+If staking precompiles (or pallet-native custody patterns) land such that Orbit can hold stash authority without a human multisig, migrate there and ship a real cooperation-free escape hatch at that point. Until then, multisig stash + `StakingOperator` is the v1 model. Not a v1 claim that custody is fully automated or that users can force-exit without the custody layer.
 
 ### 11.4 Parachain: PoC now, mainnet later (optional)
 
-**Local / testnet parachain now (MVP).** A Zombienet Orbit runtime is how we validate product math — FRAME pallets, real block production, XCM stubs to Hub-like staking. That is parallel PoC work, not “we’re buying Coretime tomorrow.”
+**Local / testnet parachain now (MVP).** A Zombienet Orbit runtime is how we validate product math FRAME pallets, real block production, XCM stubs to Hub-like staking. That is parallel PoC work, not “we’re buying Coretime tomorrow.”
 
 **Mainnet sovereign parachain later (optional Phase 4).** Staking already lives on Hub. A day-one mainnet appchain would reintroduce Coretime, collators, and XCM back to Hub for little user-facing gain. Promote the runtime only if Hub limits become real (custom slot logic, fee policy, sovereignty). Until then: PoC on Zombienet/Paseo; production staking calls stay Hub-facing.
 
@@ -725,7 +715,7 @@ For an m-of-n threshold, an attacker needs ≥ m signers. Under a *purely illust
 P(compromise)  =  Σ (j = m to n)  C(n, j) · q^j · (1−q)^(n−j)
 ```
 
-Example (3-of-5, q = 1%/year, i.i.d.): the formula yields a very small annual probability — small enough to be **misleading** if quoted without the independence caveat. Treat it as "why thresholds help when independence holds," not as Orbit's residual risk rate.
+Example (3-of-5, q = 1%/year, i.i.d.): the formula yields a very small annual probability small enough to be **misleading** if quoted without the independence caveat. Treat it as "why thresholds help when independence holds," not as Orbit's residual risk rate.
 
 **Correlated scenario (more realistic diligence framing):** if two of five signers share an ops dependency, the effective threshold against that dependency collapses toward 2-of-remaining or worse. Diligence should ask about signer graph diversity, not the optimistic binomial tail.
 
@@ -737,20 +727,19 @@ Example (3-of-5, q = 1%/year, i.i.d.): the formula yields a very small annual pr
 ---
 
 
-
 ## 12. Liquidity, Peg & Redemption Mathematics
 
 
 
 ### 12.1 A no-arbitrage bound on the instant-redemption discount
 
-Any liquid staking token offering instant redemption at a discount to underlying NAV creates an arbitrage opportunity the moment that discount is mispriced. Suppose Orbit offers instant redemption of 1 share at (1−δ)·rate_T for some discount δ, while the "patient" path — queueing through the underlying unbonding period t_unbond — pays the full rate_T plus t_unbond/365 of additional yield y accrued while waiting. A rational holder (or arbitrageur) compares the two paths and takes the instant-redeem discount only when it's cheaper than the cost of waiting:
+Any liquid staking token offering instant redemption at a discount to underlying NAV creates an arbitrage opportunity the moment that discount is mispriced. Suppose Orbit offers instant redemption of 1 share at (1−δ)·rate_T for some discount δ, while the "patient" path queueing through the underlying unbonding period t_unbond pays the full rate_T plus t_unbond/365 of additional yield y accrued while waiting. A rational holder (or arbitrageur) compares the two paths and takes the instant-redeem discount only when it's cheaper than the cost of waiting:
 
 ```
 instant-redeem strictly dominates waiting   ⟺   δ  >  y · t_unbond / 365
 ```
 
-If δ is ever priced above this bound — by the protocol directly, or by a secondary-market seller panic-discounting the token — arbitrageurs will mint or acquire the token and instantly redeem it, draining the buffer for a profit strictly larger than they'd have earned simply waiting for unbonding. That trade persists, and keeps draining the buffer, until δ is pushed back down to the bound. This gives both an upper limit the protocol should never *set* pricing above, and a market-clearing target the secondary-market peg converges to on its own, independent of protocol pricing:
+If δ is ever priced above this bound — by the protocol directly, or by a secondary-market seller panic-discounting the token arbitrageurs will mint or acquire the token and instantly redeem it, draining the buffer for a profit strictly larger than they'd have earned simply waiting for unbonding. That trade persists, and keeps draining the buffer, until δ is pushed back down to the bound. This gives both an upper limit the protocol should never *set* pricing above, and a market-clearing target the secondary-market peg converges to on its own, independent of protocol pricing:
 
 ```
 δ*  =  y · t_unbond / 365
@@ -762,9 +751,9 @@ At y ≈ 3% and t_unbond ≈ 2 days:
 δ*  ≈  0.03 × 2 / 365  ≈  0.00016  ≈  0.016%
 ```
 
-— small enough that a modest instant-liquidity buffer, not a large one, is sufficient to hold the peg tight. Because δ* is directly proportional to t_unbond, the collapse from a 28-day to a ~2-day unbonding period (Section 5.1) matters mechanically, not just narratively: it shrinks the maximum defensible discount — and therefore the value at risk if the buffer is ever temporarily exhausted — by the same 14–28x factor.
+— small enough that a modest instant-liquidity buffer, not a large one, is sufficient to hold the peg tight. Because δ* is directly proportional to t_unbond, the collapse from a 28-day to a ~2-day unbonding period (Section 5.1) matters mechanically, not just narratively: it shrinks the maximum defensible discount and therefore the value at risk if the buffer is ever temporarily exhausted by the same 14–28x factor.
 
-**What this means.** If waiting ~2 days to unbond costs you about `3% × 2/365` ≈ 0.016% of yield, nobody should accept a worse haircut than that for calm "instant" exit — or arbitrage drains the buffer. **δ* is a no-arbitrage floor in orderly markets, not bank-run peg insurance.** Under fear, de-pegs are about Hydration depth, confidence, and mass redemption — stress-test buffer + Omnipool liquidity against coordinated runs (§12.2), not against δ* alone. **What Orbit does:** size the free-DOT buffer and Hydration liquidity around δ* for calm arb, and separately stress for panic flows.
+**What this means.** If waiting ~2 days to unbond costs you about `3% × 2/365` ≈ 0.016% of yield, nobody should accept a worse haircut than that for calm "instant" exit or arbitrage drains the buffer. **δ* is a no-arbitrage floor in orderly markets, not bank-run peg insurance.** Under fear, de-pegs are about Hydration depth, confidence, and mass redemption stress-test buffer + Omnipool liquidity against coordinated runs (§12.2), not against δ* alone. **What Orbit does:** size the free-DOT buffer and Hydration liquidity around δ* for calm arb, and separately stress for panic flows.
 
 **eDOT needs its own bound.** Instant-redeem fees on eDOT (§13.1) should not reuse oDOT's 0.016%. Using the same formula with a higher opportunity yield (illustrative blended ~3.5%, or incentive-heavy holders thinking in self-stake terms):
 
@@ -772,7 +761,7 @@ At y ≈ 3% and t_unbond ≈ 2 days:
 δ*_eDOT (blended ~3.5%)  ≈  0.035 × 2 / 365  ≈  0.019%
 ```
 
-If a holder marks opportunity cost near the incentive slice alone, δ* is larger still — price eDOT's instant path off **eDOT's** foregone yield, not oDOT's 3%.
+If a holder marks opportunity cost near the incentive slice alone, δ* is larger still price eDOT's instant path off **eDOT's** foregone yield, not oDOT's 3%.
 
 ### 12.2 Buffer sizing
 
@@ -782,12 +771,11 @@ Modeling daily net redemption flow as approximately normal with mean μ and stan
 Buffer  ≈  μ · t_unbond   +   z_0.99 · σ_flow · √t_unbond
 ```
 
-This formula has two terms that scale differently with t_unbond, and collapsing them into a single "buffer is N× smaller" statement is imprecise — which term dominates matters. The first term (μ·t_unbond, driven by average net outflow) scales *linearly* with t_unbond: shrinking t_unbond from 28 days to 2 days shrinks this term by a full 14x. The second term (z_0.99·σ_flow·√t_unbond, driven by day-to-day volatility of flows) scales with the *square root* of t_unbond: the same shrink reduces this term by only √14 ≈ 3.7x. Which reduction actually dominates the total buffer depends on whether μ (average net daily outflow) or σ_flow (day-to-day volatility of net flow) is the larger contributor — in practice, net redemption flow across many independent depositors tends to average close to zero over short windows (deposits and redemptions roughly offset), making the buffer volatility-dominated and the realistic reduction closer to the ~3.7x figure than the full 14x. This should be checked against actual post-launch flow data, not assumed from the formula alone.
+This formula has two terms that scale differently with t_unbond, and collapsing them into a single "buffer is N× smaller" statement is imprecise which term dominates matters. The first term (μ·t_unbond, driven by average net outflow) scales *linearly* with t_unbond: shrinking t_unbond from 28 days to 2 days shrinks this term by a full 14x. The second term (z_0.99·σ_flow·√t_unbond, driven by day-to-day volatility of flows) scales with the *square root* of t_unbond: the same shrink reduces this term by only √14 ≈ 3.7x. Which reduction actually dominates the total buffer depends on whether μ (average net daily outflow) or σ_flow (day-to-day volatility of net flow) is the larger contributor — in practice, net redemption flow across many independent depositors tends to average close to zero over short windows (deposits and redemptions roughly offset), making the buffer volatility-dominated and the realistic reduction closer to the ~3.7x figure than the full 14x. This should be checked against actual post-launch flow data, not assumed from the formula alone.
 
-The normal approximation itself is a Central Limit Theorem convenience, valid when redemption requests arrive from many roughly-independent depositors, and should be treated as a first-pass sizing tool rather than a tail-risk guarantee: a coordinated mass redemption — a de-peg scare, or a correlated shock hitting every Polkadot LST simultaneously — produces fatter tails than a normal distribution captures. The buffer size computed above should be treated as a floor to stress-test against historical redemption-run data from comparable protocols before launch, not a number to rely on unstressed.
+The normal approximation itself is a Central Limit Theorem convenience, valid when redemption requests arrive from many roughly-independent depositors, and should be treated as a first-pass sizing tool rather than a tail-risk guarantee: a coordinated mass redemption — a de-peg scare, or a correlated shock hitting every Polkadot LST simultaneously produces fatter tails than a normal distribution captures. The buffer size computed above should be treated as a floor to stress-test against historical redemption-run data from comparable protocols before launch, not a number to rely on unstressed.
 
 ---
-
 
 
 ## 13. Economic Model: Fees, Revenue, Break-Even
@@ -797,7 +785,7 @@ The normal approximation itself is a Central Limit Theorem convenience, valid wh
 ### 13.1 Fee structure
 
 - oDOT: a standard liquid-staking protocol fee on realized base yield (e.g. in the 5–10% range common to established LSTs), kept low because oDOT competes directly against passive nomination, which has zero protocol fee.
-- eDOT: a higher performance fee on the *incentive-layer* yield specifically (not on base yield), justified by the active management described in §7.2 — slot targeting, self-stake sizing, operator relationship management, election-threshold monitoring — none of which a passive nominator or a passive existing LST currently does.
+- eDOT: a higher performance fee on the *incentive-layer* yield specifically (not on base yield), justified by the active management described in §7.2 slot targeting, self-stake sizing, operator relationship management, election-threshold monitoring none of which a passive nominator or a passive existing LST currently does.
 - A small instant-redemption fee on eDOT only, sized against the buffer economics in §12.2, to discourage buffer-draining behavior without meaningfully affecting long-term holders.
 
 ### 13.1.1 Operator economics
@@ -816,11 +804,11 @@ Revenue  =  f_o · V_oDOT · y_base   +   f_e · V_eDOT · y_incentive
 
 Fee on oDOT = a cut of base yield. Fee on eDOT = a bigger cut of incentive yield (the part Orbit actively manages); a portion of `f_e` accrues to operators (§13.1.1). Incentive APR can be high while eDOT TVL is small, so protocol revenue still sits on that thin slice. Fees are taken in Orbit vaults, not by changing Hub staking.
 
-Because incentive-layer yield on self-stake (pot-structured; see §5.3) is far larger than y_base (~3%), and eDOT is the smaller pool **at target mix** (`φ_target ≈ 0.69%` per §10.2), most protocol fee revenue comes from a thin slice of TVL — the part actually earning the incentive premium. Live revenue tracks live mix, not the target alone.
+Because incentive-layer yield on self-stake (pot-structured; see §5.3) is far larger than y_base (~3%), and eDOT is the smaller pool **at target mix** (`φ_target ≈ 0.69%` per §10.2), most protocol fee revenue comes from a thin slice of TVL the part actually earning the incentive premium. Live revenue tracks live mix, not the target alone.
 
 ### 13.3 Break-even
 
-Here `φ` means **eDOT's share of protocol TVL at the fee blend** — which equals §10.2's slashable-backing ratio **only at target mix** when all oDOT is deployed as Orbit nomination (`φ_target`). If deposit mix differs, use live `V_eDOT / (V_oDOT + V_eDOT)` in this formula, not `φ_target`.
+Here `φ` means **eDOT's share of protocol TVL at the fee blend** which equals §10.2's slashable-backing ratio **only at target mix** when all oDOT is deployed as Orbit nomination (`φ_target`). If deposit mix differs, use live `V_eDOT / (V_oDOT + V_eDOT)` in this formula, not `φ_target`.
 
 ```
 TVL_break-even  =  Fixed costs (audits, keepers, operator relationship
@@ -845,36 +833,35 @@ Order-of-magnitude only: change costs, fees, or compressed `y_incentive` and the
 
 ### 13.4 Equilibrium and capacity
 
-The self-stake incentive is a fixed budget (22.6% of DAP) divided among however much self-stake competes for it. As more capital (Orbit's or competitors') flows into self-staking, y_incentive compresses — expected under a fixed pot and concave weights. Orbit's yield advantage is therefore a moving target that shrinks as the self-stake capture trade becomes more crowded, which is why the "why now" framing in §2 matters: the advantage is largest early, while few participants have organized capital around this specific reform.
+The self-stake incentive is a fixed budget (22.6% of DAP) divided among however much self-stake competes for it. As more capital (Orbit's or competitors') flows into self-staking, y_incentive compresses expected under a fixed pot and concave weights. Orbit's yield advantage is therefore a moving target that shrinks as the self-stake capture trade becomes more crowded, which is why the "why now" framing in §2 matters: the advantage is largest early, while few participants have organized capital around this specific reform.
 
 ### 13.5 Modeling the equilibrium compression path
 
 §13.4 states this qualitatively. Making it quantitative requires being explicit about *how* new capital enters the self-stake market, because the compression speed depends on that assumption — this is worth showing rather than picking one silently.
 
-**Scenario A — new entrants copy Orbit's own strategy** (more validators, each at the same minimum self-stake size). If the number of self-staking validators N grows while each holds the same σ, aggregate self-stake is Σ = N·σ, and every validator's incentive share stays at exactly B/N regardless of the concavity exponent p — because when all competitors are the same size, the concave weighting has nothing to differentiate between them, and everyone reverts to an even 1/N split. Converting to a rate:
+**Scenario A new entrants copy Orbit's own strategy** (more validators, each at the same minimum self-stake size). If the number of self-staking validators N grows while each holds the same σ, aggregate self-stake is Σ = N·σ, and every validator's incentive share stays at exactly B/N regardless of the concavity exponent p because when all competitors are the same size, the concave weighting has nothing to differentiate between them, and everyone reverts to an even 1/N split. Converting to a rate:
 
 ```
 y_incentive  =  (B/N) / σ  =  B / (N·σ)  =  B / Σ
 ```
 
-Under this scenario, the incentive rate compresses **linearly** in Σ — doubling aggregate self-stake exactly halves the rate, independent of p.
+Under this scenario, the incentive rate compresses **linearly** in Σ doubling aggregate self-stake exactly halves the rate, independent of p.
 
-**Scenario B — the existing background of validators scales up self-stake proportionally**, while Orbit holds its own σ fixed at the floor. Here the entire competing distribution grows by a common multiplicative factor as background self-stake increases. Because the incentive-budget denominator (the sum of all competitors' σ_j^p) scales with the p-th power of that common factor while Σ scales linearly with it, the denominator scales as Σ^p, and Orbit's own incentive rate — holding its σ fixed — becomes:
+**Scenario B — the existing background of validators scales up self-stake proportionally**, while Orbit holds its own σ fixed at the floor. Here the entire competing distribution grows by a common multiplicative factor as background self-stake increases. Because the incentive-budget denominator (the sum of all competitors' σ_j^p) scales with the p-th power of that common factor while Σ scales linearly with it, the denominator scales as Σ^p, and Orbit's own incentive rate holding its σ fixed becomes:
 
 ```
 y_incentive(Σ)  ≈  B / ( σ^(1−p) · Σ^p )
 ```
 
-At p = 1/2, this is y_incentive ∝ 1/√Σ — a **square-root**, slower-than-linear decay. Under this scenario it takes a quadrupling of background aggregate self-stake to halve Orbit's rate, not a doubling.
+At p = 1/2, this is y_incentive ∝ 1/√Σ a **square-root**, slower-than-linear decay. Under this scenario it takes a quadrupling of background aggregate self-stake to halve Orbit's rate, not a doubling.
 
-**Which scenario is realistic?** Almost certainly some mix of both — new participants at minimum-viable sizes (A) and background validators scaling self-stake (B). True compression sits between linear and square-root decay; track live.
+**Which scenario is realistic?** Almost certainly some mix of both new participants at minimum-viable sizes (A) and background validators scaling self-stake (B). True compression sits between linear and square-root decay; track live.
 
-**Applying that to the §5.3 anecdote.** If today's reported ~73% on 10k σ were real for a marginal slot, and aggregate competing self-stake Σ doubled with Orbit also adding slots (self-cannibalization + Scenario A), a linear read halves the rate toward ~35–40% on self-stake — still above base yield, but not a 73% brochure number. Under slower Scenario B decay, the drop is milder. **Do not quote 73% as a forward APY**; quote a range under "Σ doubles / triples" using live pot size once measured.
+**Applying that to the §5.3 anecdote.** If today's reported ~73% on 10k σ were real for a marginal slot, and aggregate competing self-stake Σ doubled with Orbit also adding slots (self-cannibalization + Scenario A), a linear read halves the rate toward ~35–40% on self-stake still above base yield, but not a 73% brochure number. Under slower Scenario B decay, the drop is milder. **Do not quote 73% as a forward APY**; quote a range under "Σ doubles / triples" using live pot size once measured.
 
 §2's timing still holds: the advantage is largest early, before competing capital (including Orbit's own `k`) organizes.
 
 ---
-
 
 
 ## 14. How People Use Orbit
@@ -958,15 +945,14 @@ You                    Orbit app                 On-chain
 
 ### 14.3 Deposit — mint eDOT (self-stake path)
 
-Same flow, but you choose **eDOT**. Orbit bonds your DOT as validator self-stake on Orbit-operated slots (with professional operators on `StakingOperator` proxies). You receive eDOT; yield includes the self-stake incentive layer. **You can lose principal** if those validators slash — see Section 10.
+Same flow, but you choose **eDOT**. Orbit bonds your DOT as validator self-stake on Orbit-operated slots (with professional operators on `StakingOperator` proxies). You receive eDOT; yield includes the self-stake incentive layer. **You can lose principal** if those validators slash see Section 10.
 
-Orbit uses **oDOT** from the nomination pool to back the same validators for election. You do not need to deposit both yourself — but the protocol **cannot magically rebalance** separate vaults. If eDOT mints outrun oDOT nomination, eDOT deposits pause/queue until election backing exists (§7.3). If you only hold eDOT, you still depend on other depositors’ oDOT (or protocol buffers) for slot election.
+Orbit uses **oDOT** from the nomination pool to back the same validators for election. You do not need to deposit both yourself but the protocol **cannot magically rebalance** separate vaults. If eDOT mints outrun oDOT nomination, eDOT deposits pause/queue until election backing exists (§7.3). If you only hold eDOT, you still depend on other depositors’ oDOT (or protocol buffers) for slot election.
 
 ### 14.4 Hold and earn
 
 - Rewards land in the pool; your **share count stays fixed**, **exchange rate rises** (Section 9).
 - Check APY from on-chain era rewards, not wallet headline inflation APIs (Section 5.4).
-
 
 
 ### 14.5 Exit — three ways
@@ -998,8 +984,7 @@ After Hydration + Acala paths are live: expose oDOT (then eDOT if listed) to wid
 
 - Simple hold: DOT → oDOT → hold.  
 - LP fees on Hydration (oDOT/DOT or oDOT/HOLLAR) once pools exist.  
-- **eDOT in DeFi:** later — slashable and more volatile; list after oDOT peg is proven.
-
+- **eDOT in DeFi:** later slashable and more volatile; list after oDOT peg is proven.
 
 
 ### 14.7 Example scenarios
@@ -1028,14 +1013,7 @@ Runs validator hardware. Orbit holds stash; Eve has `StakingOperator` only. Earn
 - Cross-chain (Snowbridge / Hyperbridge) — after Hydration → Acala → EVM sequence
 - JAM staking-Service adapter / deposit sleeves — Section 19; not MVP
 
-
-
-### 14.9 PoC vs this spec
-
-Repo today still has a legacy Solidity single-vault experiment. **MVP does not continue that path.** Next code is a **Zombienet parachain runtime** (FRAME) with dual oDOT/eDOT pallets — Section 17.
-
 ---
-
 
 
 ## 15. Competitive Landscape
@@ -1054,18 +1032,17 @@ Repo today still has a legacy Solidity single-vault experiment. **MVP does not c
 | StellaSwap          | stDOT | Sunset March 2026             | —                                |
 
 
-Every existing Polkadot LST pools nominator-side stake undifferentiated and was designed before this reform existed. None currently separates a slashable self-stake layer from an unslashable nomination layer, and none actively targets the concave incentive curve described in §6–7. This is a genuine, currently-open gap — not a claim that these protocols can't add the same feature; they can, and the size of Orbit's advantage shrinks the moment a well-capitalized incumbent does.
+Every existing Polkadot LST pools nominator-side stake undifferentiated and was designed before this reform existed. None currently separates a slashable self-stake layer from an unslashable nomination layer, and none actively targets the concave incentive curve described in §6–7. This is a genuine, currently-open gap not a claim that these protocols can't add the same feature; they can, and the size of Orbit's advantage shrinks the moment a well-capitalized incumbent does.
 
 ### 15.2 A structural yield ceiling for undifferentiated LSTs
 
-Since validator commission is forced to 0% under the reform (§5.1), and the self-stake incentive budget (22.6% of DAP) is paid only on a validator's own self-stake never on nominated capital — any liquid staking token that pools nominator-side stake exclusively is mathematically capped at the base staker-reward rate, y_base ≈ 3% real (§5.4), minus its own protocol fee, before it even reaches the market. This isn't a claim about any specific competitor's current advertised rate — verifying each protocol's live APY is out of scope for this document and would need to be re-checked at deployment — it's a structural ceiling that follows directly from the reform's own rules: there is no path to the incentive-layer premium without holding self-stake, and none of the protocols in §15.1 hold self-stake at all. Orbit's eDOT is differentiated specifically by being the one token in the market structured to hold that layer.
+Since validator commission is forced to 0% under the reform (§5.1), and the self-stake incentive budget (22.6% of DAP) is paid only on a validator's own self-stake never on nominated capitalany liquid staking token that pools nominator-side stake exclusively is mathematically capped at the base staker-reward rate, y_base ≈ 3% real (§5.4), minus its own protocol fee, before it even reaches the market. This isn't a claim about any specific competitor's current advertised rate verifying each protocol's live APY is out of scope for this document and would need to be re-checked at deployment it's a structural ceiling that follows directly from the reform's own rules: there is no path to the incentive-layer premium without holding self-stake, and none of the protocols in §15.1 hold self-stake at all. Orbit's eDOT is differentiated specifically by being the one token in the market structured to hold that layer.
 
 ### 15.3 Broader market context
 
-Polkadot's overall liquid-staking penetration sits around 3% of staked supply (Bifrost alone is ~2.4%), compared to roughly 36% on Ethereum and ~8.7% on Solana — a structurally underbuilt market independent of this specific reform, which is a secondary tailwind beyond the primary self-stake thesis.
+Polkadot's overall liquid-staking penetration sits around 3% of staked supply (Bifrost alone is ~2.4%), compared to roughly 36% on Ethereum and ~8.7% on Solana a structurally underbuilt market independent of this specific reform, which is a secondary tailwind beyond the primary self-stake thesis.
 
 ---
-
 
 
 ## 16. Risk Disclosures
@@ -1087,7 +1064,6 @@ Polkadot's overall liquid-staking penetration sits around 3% of staked supply (B
 ---
 
 
-
 ## 17. MVP: What We Build First
 
 **Target: Q3 2026 (this quarter)** validate the product on a free local network, then public testnet. 
@@ -1105,7 +1081,6 @@ MVP build path: a **local Zombienet parachain runtime** (FRAME pallets) that imp
 7. **Pre-mainnet number gate** — derive `w(σ)` from staking runtime source; replace modeled √σ yields before any public APY claims.
 
 
-
 ### 17.2 What MVP deliberately skips
 
 
@@ -1118,7 +1093,6 @@ MVP build path: a **local Zombienet parachain runtime** (FRAME pallets) that imp
 | Deep Hydration / HOLLAR / EVM loops    | After peg exists (Hydration → Acala → EVM)                       |
 | JAM staking-Service / deposit sleeves  | After oDOT/eDOT work; see Section 19                             |
 | Production audit                       | After testnet proof                                              |
-
 
 
 
@@ -1175,7 +1149,6 @@ Audit path, Hydration peg, more validator slots, then mainnet Section 18. JAM re
 ---
 
 
-
 ## 18. Roadmap
 
 Rough quarters (revisit as product evidence lands). **MVP is Q3 2026.**
@@ -1191,17 +1164,16 @@ Rough quarters (revisit as product evidence lands). **MVP is Q3 2026.**
 | **5 — JAM / Services**             | When JAM is live             | Rebind to JAM staking Service; optional Service-deposit / capacity sleeves (Section 19). Never a launch blocker.                                                                               |
 
 
-**Why local parachain now, mainnet parachain optional later.** MVP needs a place to ship FRAME vault logic this quarter — that’s Zombienet. Users need liquid Hub staking — that’s Hub-facing calls. Buying Coretime is a separate decision after the product is validated.
+**Why local parachain now, mainnet parachain optional later.** MVP needs a place to ship FRAME vault logic this quarter that’s Zombienet. Users need liquid Hub staking that’s Hub-facing calls. Buying Coretime is a separate decision after the product is validated.
 
 **DeFi order stays fixed:** Hydration peg → Acala/HOLLAR → EVM.
 
 ---
 
 
-
 ## 19. How Orbit Plugs Into JAM
 
-JAM (**Join-Accumulate Machine**) is the protocol defined in Gavin Wood’s [Gray Paper](https://graypaper.com/) as a prospective successor to today’s Relay Chain: a permissionless, mostly-coherent compute environment where **Services** (code + balance + state) replace the parachain-centric model for much of on-chain work. Execution is structured as **Refine → Accumulate** (in-core then on-chain); the VM is the **Polkadot Virtual Machine (PVM)**, not an “EVM clone.” Anyone can deploy a Service and buy **coretime** to induce work — similar in spirit to paying for gas, but scheduled across cores.
+JAM (**Join-Accumulate Machine**) is the protocol defined in Gavin Wood’s [Gray Paper](https://graypaper.com/) as a prospective successor to today’s Relay Chain: a permissionless, mostly coherent compute environment where **Services** (code + balance + state) replace the parachain-centric model for much of on-chain work. Execution is structured as **Refine → Accumulate** (in-core then on-chain); the VM is the **Polkadot Virtual Machine (PVM)**, not an “EVM clone.” Anyone can deploy a Service and buy **coretime** to induce work similar in spirit to paying for gas, but scheduled across cores.
 
 Orbit does **not** wait for JAM. MVP and v1 are **today’s Hub staking** + liquid **oDOT / eDOT**. This section is a compatibility map, not a dependency.
 
@@ -1212,7 +1184,7 @@ From the Gray Paper abstract and Polkadot Wiki (`learn-jam-chain`):
 | Fact | Implication for Orbit |
 | ---- | --------------------- |
 | JAM hosts **Services** with code, **DOT balance/deposit**, and state; capacity scales with deposit | Liquid DOT (and later, receipts) can fund **Service deposits** — crypto-economic capacity, not a named “restaking market” in the Gray Paper |
-| **Staking, coretime sales, governance** are expected to live as **Services** (app-level), while JAM itself is more fixed-function | Orbit’s staking plug-in may move from “Hub staking pallet” to “whatever Staking Service JAM runs” — same product job, new surface |
+| **Staking, coretime sales, governance** are expected to live as **Services** (app-level), while JAM itself is more fixed-function | Orbit’s staking plug-in may move from “Hub staking pallet” to “whatever Staking Service JAM runs” same product job, new surface |
 | A **CoreChains / parachains Service** is explicitly envisioned for Polkadot compatibility | Parachains don’t vanish; they become one Service among many. Orbit is not that Service |
 | Security of JAM work is the chain’s validator / crypto-economic pipeline (guarantees, auditing, disputes) | Do **not** claim Orbit invents JAM’s security model. eDOT is not “JAM restaking” unless a future Service defines that |
 
@@ -1241,7 +1213,7 @@ What the Gray Paper does **not** specify (as of this writing): an EigenLayer-sty
                                     Orbit is not a coretime marketplace
 ```
 
-Concrete hooks we **might** build later (each needs its own Service/API — none are Gray Paper primitives Orbit can call today):
+Concrete hooks we **might** build later (each needs its own Service/API none are Gray Paper primitives Orbit can call today):
 
 1. **Staking-Service adapter** — same deposit → mint oDOT/eDOT flows against the JAM staking Service instead of Hub extrinsics.
 2. **Service-deposit sleeve** — if Services require DOT deposits for state/capacity, offer an opt-in path that parks DOT (or oDOT-backed claims) as deposit capital. That is **capacity collateral**, not “restake to secure Service X” unless that Service defines slash conditions.
