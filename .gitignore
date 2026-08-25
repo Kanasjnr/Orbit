@@ -3,3 +3,4 @@ target/
 **/.DS_Store
 parachain-template.tgz
 .template-tmp/
+chain_spec.json
