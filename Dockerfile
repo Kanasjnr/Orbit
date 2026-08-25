@@ -4,6 +4,7 @@ FROM rust:1.93.1-bookworm AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
 	clang \
+	libclang-dev \
 	cmake \
 	protobuf-compiler \
 	pkg-config \
