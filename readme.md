@@ -15,7 +15,7 @@ Status: FRAME parachain scaffold on **`next-release`** (development trunk). **No
 | `main` | Merged releases / stable snapshots |
 | `next-release` | **Active development** — all MVP work targets this branch |
 
-Open PRs against `next-release` unless you are cutting a release into `main`.
+Open PRs from **`next-release` → `main`**. All feature work lands on `next-release` first.
 
 ---
 
@@ -27,11 +27,13 @@ Open PRs against `next-release` unless you are cutting a release into `main`.
 | `runtime/` | Orbit parachain runtime (Polkadot SDK template) |
 | `node/` | Optional collator node binary |
 | `pallets/odot/` | oDOT vault pallet deposit, redeem, exchange-rate accounting (§9) |
-| `pallets/edot/` | eDOT vault pallet deposit, redeem, reward accrual, Hub slash (§9–10) |
+| `pallets/edot/` | eDOT vault pallet deposit, redeem, queue, Hub slash (§9–10) |
+| `pallets/hub-feed/` | Hub observation ingress: nomination/self-stake rewards + eDOT slash (§17) |
+| `chopsticks/` | Chopsticks Hub-fork config for feed PoC |
 | `zombienet.toml` / `zombienet-omni-node.toml` | Local network configs |
 | `dev_chain_spec.json` | Dev chain spec for Omni Node + Zombienet |
 
-Phases **B** (oDOT) and **C** (eDOT) are wired into the runtime. Hub reward accrual and unbond queues are later phases.
+Phases **B–D.1** (oDOT, eDOT, unbond queues) and **D.2** (`pallet-hub-feed`) are on `next-release`. Chopsticks observes Hub; Zombienet proves the parachain.
 
 ---
 

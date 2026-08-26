@@ -292,12 +292,33 @@ pub mod pallet {
 
 		/// Credit staking rewards into `V` without minting shares (rate rises).
 		///
-		/// MVP stub: mints underlying into the vault account. Phase D replaces this with
-		/// observed Hub self-stake incentive / base reward events attributed to `V_eDOT`.
+		/// Ops fallback. Prefer `pallet-hub-feed` reporting observed Hub self-stake rewards.
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::accrue_rewards())]
 		pub fn accrue_rewards(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
+			Self::do_credit_rewards(amount)
+		}
+
+		/// Apply a Hub self-stake slash to the eDOT vault.
+		///
+		/// Ops fallback. Prefer `pallet-hub-feed` reporting observed Hub slash events.
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::WeightInfo::apply_slash())]
+		pub fn apply_slash(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			Self::do_apply_slash(amount).map(|_| ())
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		/// Account that holds vault underlying on this parachain.
+		pub fn account_id() -> T::AccountId {
+			T::PalletId::get().into_account_truncating()
+		}
+
+		/// Credit `amount` into `V` (mint into vault). Used by hub-feed and admin accrue.
+		pub fn do_credit_rewards(amount: BalanceOf<T>) -> DispatchResult {
 			ensure!(!amount.is_zero(), Error::<T>::DepositTooSmall);
 
 			let vault = Self::account_id();
@@ -311,16 +332,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Apply a Hub self-stake slash to the eDOT vault .
-		///
-		/// Deducts `amount` from `V` without burning shares, so the exchange rate falls and
-		/// the loss is socialized across all eDOT holders. Caps at real (non-dead) assets so
-		/// the genesis inflation floor remains. Burns matching underlying from the vault
-		/// account. Phase D replaces this admin stub with observed Hub slash events.
-		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::apply_slash())]
-		pub fn apply_slash(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
-			T::AdminOrigin::ensure_origin(origin)?;
+		/// Apply slash of up to `amount`, capped at non-dead assets. Returns applied amount.
+		pub fn do_apply_slash(amount: BalanceOf<T>) -> Result<BalanceOf<T>, DispatchError> {
 			ensure!(!amount.is_zero(), Error::<T>::ZeroSlash);
 
 			let total_assets = TotalAssets::<T>::get();
@@ -347,14 +360,7 @@ pub mod pallet {
 			);
 
 			Self::deposit_event(Event::Slashed { amount: applied, total_assets: new_total });
-			Ok(())
-		}
-	}
-
-	impl<T: Config> Pallet<T> {
-		/// Account that holds vault underlying on this parachain.
-		pub fn account_id() -> T::AccountId {
-			T::PalletId::get().into_account_truncating()
+			Ok(applied)
 		}
 
 		/// Current exchange rate numerator/denominator as `(V, S)`. Rate is `V/S`.

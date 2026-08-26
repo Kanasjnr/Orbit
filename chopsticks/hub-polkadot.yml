@@ -1,0 +1,17 @@
+# Example Chopsticks config — fork Polkadot Hub-shaped state for Orbit feed PoC.
+# Docs: https://github.com/AcalaNetwork/chopsticks
+#
+# Usage (after installing @acala-network/chopsticks):
+#   npx @acala-network/chopsticks --config chopsticks/hub-polkadot.yml
+
+endpoint: wss://rpc.polkadot.io
+# Pin a recent finalized block for reproducible runs (update as needed).
+# block: '0x...'
+
+# Optional: mock / override storage for Orbit stash accounts when building fixtures.
+# import-storage:
+#   Staking:
+#     ...
+
+port: 8000
+build-block-mode: Instant
