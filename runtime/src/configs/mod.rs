@@ -342,12 +342,6 @@ impl pallet_collator_selection::Config for Runtime {
 	type WeightInfo = ();
 }
 
-/// Configure the pallet template in pallets/template.
-impl pallet_parachain_template::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_parachain_template::weights::SubstrateWeight<Runtime>;
-}
-
 parameter_types! {
 	pub const OdotPalletId: PalletId = PalletId(*b"orb/odot");
 	/// Minimum oDOT deposit (0.01 UNIT).
@@ -364,4 +358,22 @@ impl pallet_odot::Config for Runtime {
 	type DeadShares = OdotDeadShares;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = pallet_odot::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+	pub const EdotPalletId: PalletId = PalletId(*b"orb/edot");
+	/// Minimum eDOT deposit (0.01 UNIT).
+	pub const EdotMinimumDeposit: Balance = 10 * MILLI_UNIT;
+	/// Virtual dead shares / assets at genesis (inflation-attack floor, WHITEPAPER §9.3).
+	pub const EdotDeadShares: Balance = 1_000 * UNIT;
+}
+
+impl pallet_edot::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type PalletId = EdotPalletId;
+	type MinimumDeposit = EdotMinimumDeposit;
+	type DeadShares = EdotDeadShares;
+	type AdminOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = pallet_edot::weights::SubstrateWeight<Runtime>;
 }

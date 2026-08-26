@@ -53,7 +53,7 @@ jobs:
         run: cargo build -p parachain-template-runtime --release
         timeout-minutes: 90
 
-  # End-to-end: relay + Orbit para 1000 + oDOT deposit extrinsic.
+  # End-to-end: relay + Orbit para 1000 + oDOT/eDOT deposit extrinsics.
   zombienet:
     runs-on: ubuntu-latest
     steps:

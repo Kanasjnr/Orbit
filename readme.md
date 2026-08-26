@@ -27,11 +27,11 @@ Open PRs against `next-release` unless you are cutting a release into `main`.
 | `runtime/` | Orbit parachain runtime (Polkadot SDK template) |
 | `node/` | Optional collator node binary |
 | `pallets/odot/` | oDOT vault pallet deposit, redeem, exchange-rate accounting (§9) |
-| `pallets/template/` | Template pallet (scaffold leftover; remove later) |
+| `pallets/edot/` | eDOT vault pallet deposit, redeem, reward accrual, Hub slash (§9–10) |
 | `zombienet.toml` / `zombienet-omni-node.toml` | Local network configs |
 | `dev_chain_spec.json` | Dev chain spec for Omni Node + Zombienet |
 
-Phase **B** (oDOT vault) is wired into the runtime. Hub reward accrual and unbond queues are later phases.
+Phases **B** (oDOT) and **C** (eDOT) are wired into the runtime. Hub reward accrual and unbond queues are later phases.
 
 ---
 
@@ -41,7 +41,8 @@ Rust is pinned in `rust-toolchain.toml` to **1.93.1** (Rust ≥1.96 breaks Subst
 
 ```bash
 rustup show
-cargo check -p pallet-parachain-template
+cargo check -p pallet-odot
+cargo check -p pallet-edot
 cargo check -p parachain-template-runtime
 ```
 
@@ -59,7 +60,7 @@ Build collator + relay (macOS: compile `polkadot` from `polkadot-stable2512`; Li
 cargo +1.93.1 build -p parachain-template-node --release
 export PATH="$PWD/target/release:$PATH"
 
-# network + oDOT deposit (relay, para 1000, extrinsic)
+# network + oDOT/eDOT deposit (relay, para 1000, extrinsics)
 npx --yes @zombienet/cli --provider native test .github/tests/zombienet-integration.zndsl
 ```
 

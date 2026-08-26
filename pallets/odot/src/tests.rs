@@ -1,5 +1,10 @@
 use crate::{mock::*, Error, Event, Shares, TotalAssets, TotalShares};
 use frame::testing_prelude::*;
+use polkadot_sdk::pallet_balances::Pallet as BalancesPallet;
+
+fn vault_free() -> u128 {
+	Balances::free_balance(Odot::account_id())
+}
 
 #[test]
 fn genesis_seeds_dead_shares() {
@@ -7,6 +12,7 @@ fn genesis_seeds_dead_shares() {
 		assert_eq!(TotalAssets::<Test>::get(), DeadShares::get());
 		assert_eq!(TotalShares::<Test>::get(), DeadShares::get());
 		assert_eq!(Shares::<Test>::get(ALICE), 0);
+		assert_eq!(vault_free(), DeadShares::get());
 	});
 }
 
@@ -17,6 +23,7 @@ fn deposit_mints_one_to_one_at_genesis_rate() {
 		assert_eq!(Shares::<Test>::get(ALICE), 100);
 		assert_eq!(TotalAssets::<Test>::get(), DeadShares::get() + 100);
 		assert_eq!(TotalShares::<Test>::get(), DeadShares::get() + 100);
+		assert_eq!(vault_free(), DeadShares::get() + 100);
 		System::assert_last_event(
 			Event::Deposited { who: ALICE, assets: 100, shares: 100 }.into(),
 		);
@@ -49,6 +56,7 @@ fn redeem_returns_pro_rata_assets() {
 		// Dead shares remain as the inflation floor.
 		assert_eq!(TotalShares::<Test>::get(), DeadShares::get());
 		assert_eq!(TotalAssets::<Test>::get(), DeadShares::get() + 91);
+		assert_eq!(vault_free(), DeadShares::get() + 91);
 	});
 }
 
@@ -86,11 +94,49 @@ fn redeem_more_than_balance_fails() {
 }
 
 #[test]
+fn zero_redeem_fails() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Odot::deposit(RuntimeOrigin::signed(ALICE), 100));
+		assert_noop!(
+			Odot::redeem(RuntimeOrigin::signed(ALICE), 0),
+			Error::<Test>::ZeroSharesRedeem
+		);
+	});
+}
+
+#[test]
 fn non_admin_cannot_accrue() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
 			Odot::accrue_rewards(RuntimeOrigin::signed(ALICE), 10),
 			DispatchError::BadOrigin
 		);
+	});
+}
+
+#[test]
+fn partial_redeem_leaves_remaining_shares() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Odot::deposit(RuntimeOrigin::signed(ALICE), 100));
+		let before = Balances::free_balance(ALICE);
+		assert_ok!(Odot::redeem(RuntimeOrigin::signed(ALICE), 40));
+		assert_eq!(Shares::<Test>::get(ALICE), 60);
+		assert_eq!(Balances::free_balance(ALICE) - before, 40);
+		assert_eq!(vault_free(), DeadShares::get() + 60);
+	});
+}
+
+#[test]
+fn donation_to_vault_does_not_inflate_mint_rate() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Odot::deposit(RuntimeOrigin::signed(ALICE), 100));
+		assert_ok!(BalancesPallet::<Test>::transfer_allow_death(
+			RuntimeOrigin::signed(BOB),
+			Odot::account_id(),
+			500,
+		));
+		assert_eq!(TotalAssets::<Test>::get(), DeadShares::get() + 100);
+		assert_ok!(Odot::deposit(RuntimeOrigin::signed(BOB), 100));
+		assert_eq!(Shares::<Test>::get(BOB), 100);
 	});
 }
