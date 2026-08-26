@@ -305,13 +305,11 @@ mod runtime {
 	#[runtime::pallet_index(33)]
 	pub type MessageQueue = pallet_message_queue;
 
-	// Template
-	#[runtime::pallet_index(50)]
-	pub type TemplatePallet = pallet_parachain_template;
-
 	// Orbit vaults
 	#[runtime::pallet_index(51)]
 	pub type Odot = pallet_odot;
+	#[runtime::pallet_index(52)]
+	pub type Edot = pallet_edot;
 }
 
 #[docify::export(register_validate_block)]

@@ -9113,6 +9113,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-edot"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "polkadot-sdk",
+ "polkadot-sdk-frame",
+ "scale-info",
+]
+
+[[package]]
 name = "pallet-election-provider-multi-block"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9690,15 +9700,6 @@ dependencies = [
  "polkadot-sdk-frame",
  "scale-info",
  "sp-metadata-ir",
-]
-
-[[package]]
-name = "pallet-parachain-template"
-version = "0.1.0"
-dependencies = [
- "parity-scale-codec",
- "polkadot-sdk-frame",
- "scale-info",
 ]
 
 [[package]]
@@ -10614,8 +10615,8 @@ dependencies = [
  "docify",
  "hex-literal",
  "log",
+ "pallet-edot",
  "pallet-odot",
- "pallet-parachain-template",
  "parity-scale-codec",
  "polkadot-sdk",
  "scale-info",

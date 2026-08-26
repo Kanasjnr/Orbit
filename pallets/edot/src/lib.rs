@@ -1,12 +1,13 @@
-//! # oDOT vault pallet
+//! # eDOT vault pallet
 //!
-//! Nomination-path liquid staking shares for Orbit.
+//! Validator self-stake liquid staking shares for Orbit.
 //!
-//! - Deposit DOT → mint oDOT shares at `rate = V / S`
-//! - Redeem shares → burn and return DOT (instant for Phase B; unbond queue later)
+//! - Deposit DOT → mint eDOT shares at `rate = V / S`
+//! - Redeem shares → burn and return DOT (instant for Phase C; unbond queue later)
 //! - Accrue rewards by increasing `V` without minting shares (Hub wiring is Phase D)
+//! - Apply Hub slash by decreasing `V` without burning shares (rate falls, §10.1A)
 //!
-//! Hub slash never reduces `V_oDOT` (§10.1A). This pallet has no slash path.
+//! Hub slash hits eDOT only. oDOT has no slash path; this pallet does.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use pallet::*;
@@ -27,7 +28,7 @@ pub mod pallet {
 		prelude::*,
 		traits::{
 			fungible::{Inspect, Mutate},
-			tokens::Preservation,
+			tokens::{Fortitude, Precision, Preservation},
 			EnsureOrigin,
 		},
 	};
@@ -57,7 +58,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type DeadShares: Get<BalanceOf<Self>>;
 
-		/// Origin allowed to credit reward accrual into `V` without minting shares.
+		/// Origin allowed to credit rewards or apply Hub slash accounting into `V`.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		type WeightInfo: WeightInfo;
@@ -74,20 +75,26 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type TotalShares<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
-	/// Per-account oDOT share balances (dead shares are not credited to anyone).
+	/// Per-account eDOT share balances (dead shares are not credited to anyone).
 	#[pallet::storage]
 	pub type Shares<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
 
+	/// Cumulative Hub slash amount applied to this vault (observability).
+	#[pallet::storage]
+	pub type TotalSlashed<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// `who` deposited `assets` underlying and received `shares` oDOT.
+		/// `who` deposited `assets` underlying and received `shares` eDOT.
 		Deposited { who: T::AccountId, assets: BalanceOf<T>, shares: BalanceOf<T> },
-		/// `who` redeemed `shares` oDOT for `assets` underlying.
+		/// `who` redeemed `shares` eDOT for `assets` underlying.
 		Redeemed { who: T::AccountId, shares: BalanceOf<T>, assets: BalanceOf<T> },
 		/// Protocol credited `amount` into `V` without minting shares (rate rises).
 		RewardsAccrued { amount: BalanceOf<T>, total_assets: BalanceOf<T> },
+		/// Hub slash deducted `amount` from `V` without burning shares (rate falls, §10.1A).
+		Slashed { amount: BalanceOf<T>, total_assets: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -104,6 +111,10 @@ pub mod pallet {
 		Arithmetic,
 		/// Vault has no share supply to redeem against.
 		EmptyVault,
+		/// Slash amount is zero.
+		ZeroSlash,
+		/// No real (non-dead) assets available to slash.
+		NothingToSlash,
 	}
 
 	#[pallet::genesis_config]
@@ -122,20 +133,20 @@ pub mod pallet {
 			// Ensure the vault account exists as a system account for transfers.
 			let vault = Pallet::<T>::account_id();
 			frame_system::Pallet::<T>::inc_providers(&vault);
-			// Lock real dead assets in the vault (ERC-4626-style floor) so
-			// `TotalAssets` matches free balance on the vault account.
+			// Lock real dead assets in the vault (ERC-4626-style floor). Virtual-only
+			// dead assets break slash+redeem: live claims can exceed vault balance.
 			if !dead.is_zero() {
 				T::Currency::mint_into(&vault, dead)
-					.expect("mint dead shares into oDOT vault at genesis");
+					.expect("mint dead shares into eDOT vault at genesis");
 			}
 		}
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Deposit underlying into the oDOT vault and mint shares at the current rate.
+		/// Deposit underlying into the eDOT vault and mint shares at the current rate.
 		///
-		/// `ΔS = d · S / V`, then `V += d`, `S += ΔS` (WHITEOBER §9.1).
+		/// `ΔS = d · S / V`, then `V += d`, `S += ΔS` (WHITEPAPER §9.1).
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::deposit())]
 		pub fn deposit(origin: OriginFor<T>, assets: BalanceOf<T>) -> DispatchResult {
@@ -171,10 +182,10 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Burn oDOT shares and return underlying at the current rate.
+		/// Burn eDOT shares and return underlying at the current rate.
 		///
 		/// `d_out = s · V / S`, then `S -= s`, `V -= d_out`.
-		/// Phase B redeems instantly from the vault balance; Hub unbond queue is later.
+		/// Phase C redeems instantly from the vault balance; Hub unbond queue is later.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::redeem())]
 		pub fn redeem(origin: OriginFor<T>, shares: BalanceOf<T>) -> DispatchResult {
@@ -213,7 +224,7 @@ pub mod pallet {
 		/// Credit staking rewards into `V` without minting shares (rate rises).
 		///
 		/// MVP stub: mints underlying into the vault account. Phase D replaces this with
-		/// observed Hub nomination reward events attributed to `V_oDOT` only.
+		/// observed Hub self-stake incentive / base reward events attributed to `V_eDOT`.
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::accrue_rewards())]
 		pub fn accrue_rewards(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
@@ -223,12 +234,50 @@ pub mod pallet {
 			let vault = Self::account_id();
 			T::Currency::mint_into(&vault, amount)?;
 
-			let total_assets = TotalAssets::<T>::get()
-				.checked_add(&amount)
-				.ok_or(Error::<T>::Arithmetic)?;
+			let total_assets =
+				TotalAssets::<T>::get().checked_add(&amount).ok_or(Error::<T>::Arithmetic)?;
 			TotalAssets::<T>::put(total_assets);
 
 			Self::deposit_event(Event::RewardsAccrued { amount, total_assets });
+			Ok(())
+		}
+
+		/// Apply a Hub self-stake slash to the eDOT vault .
+		///
+		/// Deducts `amount` from `V` without burning shares, so the exchange rate falls and
+		/// the loss is socialized across all eDOT holders. Caps at real (non-dead) assets so
+		/// the genesis inflation floor remains. Burns matching underlying from the vault
+		/// account. Phase D replaces this admin stub with observed Hub slash events.
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::WeightInfo::apply_slash())]
+		pub fn apply_slash(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			ensure!(!amount.is_zero(), Error::<T>::ZeroSlash);
+
+			let total_assets = TotalAssets::<T>::get();
+			let dead = T::DeadShares::get();
+			let slashable = total_assets.saturating_sub(dead);
+			ensure!(!slashable.is_zero(), Error::<T>::NothingToSlash);
+
+			let applied = amount.min(slashable);
+			let new_total = total_assets.checked_sub(&applied).ok_or(Error::<T>::Arithmetic)?;
+
+			let vault = Self::account_id();
+			let burned = T::Currency::burn_from(
+				&vault,
+				applied,
+				Preservation::Expendable,
+				Precision::Exact,
+				Fortitude::Force,
+			)?;
+			ensure!(burned == applied, Error::<T>::Arithmetic);
+
+			TotalAssets::<T>::put(new_total);
+			TotalSlashed::<T>::put(
+				TotalSlashed::<T>::get().checked_add(&applied).ok_or(Error::<T>::Arithmetic)?,
+			);
+
+			Self::deposit_event(Event::Slashed { amount: applied, total_assets: new_total });
 			Ok(())
 		}
 	}
