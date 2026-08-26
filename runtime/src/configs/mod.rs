@@ -346,8 +346,10 @@ parameter_types! {
 	pub const OdotPalletId: PalletId = PalletId(*b"orb/odot");
 	/// Minimum oDOT deposit (0.01 UNIT).
 	pub const OdotMinimumDeposit: Balance = 10 * MILLI_UNIT;
-	/// Virtual dead shares / assets at genesis (inflation-attack floor, WHITEOBER §9.3).
+	/// Virtual dead shares / assets at genesis (inflation-attack floor).
 	pub const OdotDeadShares: Balance = 1_000 * UNIT;
+	/// PoC unbond delay (10 blocks). Production should track Hub ~24–48h unbonding.
+	pub const OdotUnbondingPeriod: BlockNumber = 10;
 }
 
 impl pallet_odot::Config for Runtime {
@@ -357,6 +359,7 @@ impl pallet_odot::Config for Runtime {
 	type MinimumDeposit = OdotMinimumDeposit;
 	type DeadShares = OdotDeadShares;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type UnbondingPeriod = OdotUnbondingPeriod;
 	type WeightInfo = pallet_odot::weights::SubstrateWeight<Runtime>;
 }
 
@@ -364,8 +367,10 @@ parameter_types! {
 	pub const EdotPalletId: PalletId = PalletId(*b"orb/edot");
 	/// Minimum eDOT deposit (0.01 UNIT).
 	pub const EdotMinimumDeposit: Balance = 10 * MILLI_UNIT;
-	/// Virtual dead shares / assets at genesis (inflation-attack floor, WHITEPAPER §9.3).
+	/// Virtual dead shares / assets at genesis (inflation-attack floor).
 	pub const EdotDeadShares: Balance = 1_000 * UNIT;
+	/// PoC unbond delay (10 blocks). Production should track Hub ~24–48h unbonding.
+	pub const EdotUnbondingPeriod: BlockNumber = 10;
 }
 
 impl pallet_edot::Config for Runtime {
@@ -375,5 +380,6 @@ impl pallet_edot::Config for Runtime {
 	type MinimumDeposit = EdotMinimumDeposit;
 	type DeadShares = EdotDeadShares;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type UnbondingPeriod = EdotUnbondingPeriod;
 	type WeightInfo = pallet_edot::weights::SubstrateWeight<Runtime>;
 }
