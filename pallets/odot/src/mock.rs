@@ -62,6 +62,7 @@ parameter_types! {
 	pub const OdotPalletId: PalletId = PalletId(*b"orb/odot");
 	pub const MinDeposit: Balance = 10;
 	pub const DeadShares: Balance = 1_000;
+	pub const UnbondingPeriod: u64 = 3;
 }
 
 impl crate::Config for Test {
@@ -71,6 +72,7 @@ impl crate::Config for Test {
 	type MinimumDeposit = MinDeposit;
 	type DeadShares = DeadShares;
 	type AdminOrigin = frame_system::EnsureRoot<u64>;
+	type UnbondingPeriod = UnbondingPeriod;
 	type WeightInfo = ();
 }
 

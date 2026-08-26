@@ -3,9 +3,11 @@
 //! Validator self-stake liquid staking shares for Orbit.
 //!
 //! - Deposit DOT → mint eDOT shares at `rate = V / S`
-//! - Redeem shares → burn and return DOT (instant for Phase C; unbond queue later)
-//! - Accrue rewards by increasing `V` without minting shares (Hub wiring is Phase D)
+//! - Protocol redeem queues for `UnbondingPeriod` then pays at claim-time rate (§12, §14.5)
+//! - Accrue rewards by increasing `V` without minting shares (Hub observation is later)
 //! - Apply Hub slash by decreasing `V` without burning shares (rate falls, §10.1A)
+//!
+//! Queued shares stay in `S` until claim, so a slash during unbond still socializes.
 //!
 //! Hub slash hits eDOT only. oDOT has no slash path; this pallet does.
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -61,7 +63,18 @@ pub mod pallet {
 		/// Origin allowed to credit rewards or apply Hub slash accounting into `V`.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
+		/// Blocks a protocol redeem must wait before `claim_redeem` (MVP stand-in for Hub unbond).
+		#[pallet::constant]
+		type UnbondingPeriod: Get<BlockNumberFor<Self>>;
+
 		type WeightInfo: WeightInfo;
+	}
+
+	/// Shares locked in a protocol redeem, still counted in `S` (and slashable) until claimed.
+	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, RuntimeDebug)]
+	pub struct RedeemRequest<Balance, BlockNumber> {
+		pub shares: Balance,
+		pub unlock_at: BlockNumber,
 	}
 
 	#[pallet::pallet]
@@ -84,13 +97,35 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type TotalSlashed<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
+	/// Per-account protocol redeem queue. Shares are deducted from `Shares` but remain in `S`.
+	#[pallet::storage]
+	pub type RedeemRequests<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		T::AccountId,
+		Twox64Concat,
+		u64,
+		RedeemRequest<BalanceOf<T>, BlockNumberFor<T>>,
+	>;
+
+	/// Next redeem request id per account.
+	#[pallet::storage]
+	pub type NextRedeemId<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// `who` deposited `assets` underlying and received `shares` eDOT.
 		Deposited { who: T::AccountId, assets: BalanceOf<T>, shares: BalanceOf<T> },
-		/// `who` redeemed `shares` eDOT for `assets` underlying.
-		Redeemed { who: T::AccountId, shares: BalanceOf<T>, assets: BalanceOf<T> },
+		/// `who` queued `shares` for protocol redeem; claimable at `unlock_at`.
+		RedeemRequested {
+			who: T::AccountId,
+			id: u64,
+			shares: BalanceOf<T>,
+			unlock_at: BlockNumberFor<T>,
+		},
+		/// `who` claimed queued redeem `id` for `assets` underlying.
+		RedeemClaimed { who: T::AccountId, id: u64, shares: BalanceOf<T>, assets: BalanceOf<T> },
 		/// Protocol credited `amount` into `V` without minting shares (rate rises).
 		RewardsAccrued { amount: BalanceOf<T>, total_assets: BalanceOf<T> },
 		/// Hub slash deducted `amount` from `V` without burning shares (rate falls, §10.1A).
@@ -115,6 +150,10 @@ pub mod pallet {
 		ZeroSlash,
 		/// No real (non-dead) assets available to slash.
 		NothingToSlash,
+		/// Redeem request does not exist for this account.
+		UnknownRedeemRequest,
+		/// Unbonding period has not elapsed.
+		NotUnlocked,
 	}
 
 	#[pallet::genesis_config]
@@ -182,24 +221,50 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Burn eDOT shares and return underlying at the current rate.
-		///
-		/// `d_out = s · V / S`, then `S -= s`, `V -= d_out`.
-		/// Phase C redeems instantly from the vault balance; Hub unbond queue is later.
+		/// Queue a protocol redeem. Shares leave the free balance but stay in `S` until claim,
+		/// so they remain exposed to Hub slash during the unbonding window .
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::redeem())]
-		pub fn redeem(origin: OriginFor<T>, shares: BalanceOf<T>) -> DispatchResult {
+		#[pallet::weight(T::WeightInfo::request_redeem())]
+		pub fn request_redeem(origin: OriginFor<T>, shares: BalanceOf<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(!shares.is_zero(), Error::<T>::ZeroSharesRedeem);
 
 			let held = Shares::<T>::get(&who);
 			ensure!(held >= shares, Error::<T>::InsufficientShares);
 
+			Shares::<T>::insert(&who, held.checked_sub(&shares).ok_or(Error::<T>::Arithmetic)?);
+
+			let id = NextRedeemId::<T>::get(&who);
+			let unlock_at = frame_system::Pallet::<T>::block_number()
+				.saturating_add(T::UnbondingPeriod::get());
+			RedeemRequests::<T>::insert(
+				&who,
+				id,
+				RedeemRequest { shares, unlock_at },
+			);
+			NextRedeemId::<T>::insert(&who, id.checked_add(1).ok_or(Error::<T>::Arithmetic)?);
+
+			Self::deposit_event(Event::RedeemRequested { who, id, shares, unlock_at });
+			Ok(())
+		}
+
+		/// Pay a matured protocol redeem at the **current** rate (`d_out = s · V / S`).
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::WeightInfo::claim_redeem())]
+		pub fn claim_redeem(origin: OriginFor<T>, id: u64) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let req = RedeemRequests::<T>::take(&who, id).ok_or(Error::<T>::UnknownRedeemRequest)?;
+			ensure!(
+				frame_system::Pallet::<T>::block_number() >= req.unlock_at,
+				Error::<T>::NotUnlocked
+			);
+
 			let total_assets = TotalAssets::<T>::get();
 			let total_shares = TotalShares::<T>::get();
 			ensure!(!total_shares.is_zero(), Error::<T>::EmptyVault);
 
-			let assets = shares
+			let assets = req
+				.shares
 				.checked_mul(&total_assets)
 				.ok_or(Error::<T>::Arithmetic)?
 				.checked_div(&total_shares)
@@ -213,11 +278,15 @@ pub mod pallet {
 				total_assets.checked_sub(&assets).ok_or(Error::<T>::Arithmetic)?,
 			);
 			TotalShares::<T>::put(
-				total_shares.checked_sub(&shares).ok_or(Error::<T>::Arithmetic)?,
+				total_shares.checked_sub(&req.shares).ok_or(Error::<T>::Arithmetic)?,
 			);
-			Shares::<T>::insert(&who, held.checked_sub(&shares).ok_or(Error::<T>::Arithmetic)?);
 
-			Self::deposit_event(Event::Redeemed { who, shares, assets });
+			Self::deposit_event(Event::RedeemClaimed {
+				who,
+				id,
+				shares: req.shares,
+				assets,
+			});
 			Ok(())
 		}
 
