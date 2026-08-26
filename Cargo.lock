@@ -9261,6 +9261,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-hub-feed"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "polkadot-sdk-frame",
+ "scale-info",
+]
+
+[[package]]
 name = "pallet-identity"
 version = "45.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10616,6 +10625,7 @@ dependencies = [
  "hex-literal",
  "log",
  "pallet-edot",
+ "pallet-hub-feed",
  "pallet-odot",
  "parity-scale-codec",
  "polkadot-sdk",

@@ -310,6 +310,8 @@ mod runtime {
 	pub type Odot = pallet_odot;
 	#[runtime::pallet_index(52)]
 	pub type Edot = pallet_edot;
+	#[runtime::pallet_index(53)]
+	pub type HubFeed = pallet_hub_feed;
 }
 
 #[docify::export(register_validate_block)]

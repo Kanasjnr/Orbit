@@ -383,3 +383,34 @@ impl pallet_edot::Config for Runtime {
 	type UnbondingPeriod = EdotUnbondingPeriod;
 	type WeightInfo = pallet_edot::weights::SubstrateWeight<Runtime>;
 }
+
+/// Routes Hub nomination rewards into the oDOT vault.
+pub struct OdotHubSink;
+impl pallet_hub_feed::NominationRewardSink for OdotHubSink {
+	type Balance = Balance;
+	fn credit_nomination_rewards(amount: Self::Balance) -> frame_support::dispatch::DispatchResult {
+		pallet_odot::Pallet::<Runtime>::do_credit_rewards(amount)
+	}
+}
+
+/// Routes Hub self-stake rewards / slash into the eDOT vault.
+pub struct EdotHubSink;
+impl pallet_hub_feed::SelfStakeVaultSink for EdotHubSink {
+	type Balance = Balance;
+	fn credit_self_stake_rewards(amount: Self::Balance) -> frame_support::dispatch::DispatchResult {
+		pallet_edot::Pallet::<Runtime>::do_credit_rewards(amount)
+	}
+	fn apply_hub_slash(
+		amount: Self::Balance,
+	) -> Result<Self::Balance, sp_runtime::DispatchError> {
+		pallet_edot::Pallet::<Runtime>::do_apply_slash(amount)
+	}
+}
+
+impl pallet_hub_feed::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type FeedOrigin = EnsureRoot<AccountId>;
+	type NominationVault = OdotHubSink;
+	type SelfStakeVault = EdotHubSink;
+	type WeightInfo = pallet_hub_feed::weights::SubstrateWeight<Runtime>;
+}

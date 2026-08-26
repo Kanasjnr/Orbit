@@ -6,8 +6,8 @@ repository = "https://github.com/Kanasjnr/Orbit.git"
 edition = "2021"
 
 [workspace]
-default-members = ["pallets/odot", "pallets/edot", "runtime"]
-members = ["node", "pallets/odot", "pallets/edot", "runtime"]
+default-members = ["pallets/odot", "pallets/edot", "pallets/hub-feed", "runtime"]
+members = ["node", "pallets/odot", "pallets/edot", "pallets/hub-feed", "runtime"]
 resolver = "2"
 
 
@@ -53,6 +53,7 @@ zero-prefixed-literal = { level = "allow", priority = 2 }            # 00_1000_0
 parachain-template-runtime = { path = "./runtime", default-features = false }
 pallet-odot = { path = "./pallets/odot", default-features = false }
 pallet-edot = { path = "./pallets/edot", default-features = false }
+pallet-hub-feed = { path = "./pallets/hub-feed", default-features = false }
 clap = { version = "4.5.13" }
 codec = { version = "3.7.5", default-features = false, package = "parity-scale-codec" }
 color-print = { version = "0.3.4" }

@@ -315,24 +315,12 @@ pub mod pallet {
 
 		/// Credit staking rewards into `V` without minting shares (rate rises).
 		///
-		/// MVP stub: mints underlying into the vault account. Phase D replaces this with
-		/// observed Hub nomination reward events attributed to `V_oDOT` only.
+		/// Ops fallback. Prefer `pallet-hub-feed` reporting observed Hub nomination rewards.
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::accrue_rewards())]
 		pub fn accrue_rewards(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			ensure!(!amount.is_zero(), Error::<T>::DepositTooSmall);
-
-			let vault = Self::account_id();
-			T::Currency::mint_into(&vault, amount)?;
-
-			let total_assets = TotalAssets::<T>::get()
-				.checked_add(&amount)
-				.ok_or(Error::<T>::Arithmetic)?;
-			TotalAssets::<T>::put(total_assets);
-
-			Self::deposit_event(Event::RewardsAccrued { amount, total_assets });
-			Ok(())
+			Self::do_credit_rewards(amount)
 		}
 	}
 
@@ -340,6 +328,21 @@ pub mod pallet {
 		/// Account that holds vault underlying on this parachain.
 		pub fn account_id() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
+		}
+
+		/// Credit `amount` into `V` (mint into vault). Used by hub-feed and admin accrue.
+		pub fn do_credit_rewards(amount: BalanceOf<T>) -> DispatchResult {
+			ensure!(!amount.is_zero(), Error::<T>::DepositTooSmall);
+
+			let vault = Self::account_id();
+			T::Currency::mint_into(&vault, amount)?;
+
+			let total_assets =
+				TotalAssets::<T>::get().checked_add(&amount).ok_or(Error::<T>::Arithmetic)?;
+			TotalAssets::<T>::put(total_assets);
+
+			Self::deposit_event(Event::RewardsAccrued { amount, total_assets });
+			Ok(())
 		}
 
 		/// Current exchange rate numerator/denominator as `(V, S)`. Rate is `V/S`.
