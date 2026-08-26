@@ -402,7 +402,7 @@ impl pallet_hub_feed::SelfStakeVaultSink for EdotHubSink {
 	}
 	fn apply_hub_slash(
 		amount: Self::Balance,
-	) -> Result<Self::Balance, frame_support::dispatch::DispatchError> {
+	) -> Result<Self::Balance, sp_runtime::DispatchError> {
 		pallet_edot::Pallet::<Runtime>::do_apply_slash(amount)
 	}
 }
