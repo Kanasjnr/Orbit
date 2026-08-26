@@ -13,9 +13,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci:
+  check:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
@@ -28,15 +29,66 @@ jobs:
       - if: contains(matrix.os, 'macos')
         uses: ./.github/actions/macos-dependencies
 
-      - name: Run clippy
-        run: |
-          SKIP_PALLET_REVIVE_FIXTURES=1 SKIP_WASM_BUILD=1 cargo clippy --all-targets --all-features --locked --workspace --quiet
+      - name: Clippy
+        run: SKIP_PALLET_REVIVE_FIXTURES=1 SKIP_WASM_BUILD=1 cargo clippy --all-targets --locked --workspace -- -D warnings
         timeout-minutes: 30
 
-      - name: Run the tests
-        run: SKIP_WASM_BUILD=1 cargo test
-        timeout-minutes: 15
+      - name: Unit tests
+        run: SKIP_WASM_BUILD=1 cargo test --workspace
+        timeout-minutes: 20
 
-      - name: Build the docs
+      - name: Docs
         run: SKIP_WASM_BUILD=1 cargo doc --workspace --no-deps
         timeout-minutes: 15
+
+  # WASM runtime build (pinned Rust 1.93.1 — catches linker / wasm32 issues).
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/free-disk-space
+      - uses: ./.github/actions/ubuntu-dependencies
+
+      - name: Build runtime (release WASM)
+        run: cargo build -p parachain-template-runtime --release
+        timeout-minutes: 90
+
+  # End-to-end: relay + Orbit para 1000 + oDOT deposit extrinsic.
+  zombienet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/free-disk-space
+      - uses: ./.github/actions/ubuntu-dependencies
+
+      - name: Resolve polkadot-sdk release tag
+        run: |
+          VERSION=$(grep -E '^polkadot-sdk = \{ version = "[0-9]+\.[0-9]+\.[0-9]+"' Cargo.toml | sed -E 's/.*version = "([0-9]+)\.[0-9]+\.[0-9]+".*/\1/')
+          echo "POLKADOT_VERSION=stable${VERSION}" >> "$GITHUB_ENV"
+
+      - name: Build collator
+        run: cargo build -p parachain-template-node --release
+        timeout-minutes: 90
+
+      - name: Download relay binaries
+        working-directory: target/release
+        run: |
+          BASE="https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-${POLKADOT_VERSION}"
+          wget --no-verbose "$BASE/polkadot"
+          wget --no-verbose "$BASE/polkadot-prepare-worker"
+          wget --no-verbose "$BASE/polkadot-execute-worker"
+          chmod +x polkadot polkadot-prepare-worker polkadot-execute-worker
+
+      - name: Zombienet integration test
+        run: |
+          export PATH="$PWD/target/release:$PATH"
+          rm -rf /tmp/zn-test
+          npx --yes @zombienet/cli --dir /tmp/zn-test --provider native test .github/tests/zombienet-integration.zndsl
+        timeout-minutes: 60
+
+      - name: Upload Zombienet logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zombienet-logs
+          path: /tmp/zn-test/logs/

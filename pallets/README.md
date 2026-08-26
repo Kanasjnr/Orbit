@@ -3,7 +3,9 @@
 ℹ️ A pallet is a unit of encapsulated logic, with a clearly defined responsibility. A pallet is analogous to a
 module in the runtime.
 
-💁 In this template, there is a simple custom pallet based on the FRAME framework.
+💁 **oDOT** (`pallets/odot/`) — nomination vault share accounting (WHITEPAPER §9). Unit tests use a minimal mock runtime; Hub staking is Zombienet/Chopsticks later.
+
+There is also a template pallet from the upstream parachain scaffold.
 
 👉 Learn more about FRAME
 [here](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/frame_runtime/index.html).

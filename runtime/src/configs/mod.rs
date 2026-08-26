@@ -63,7 +63,8 @@ use super::{
 	MessageQueue, Nonce, PalletInfo, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent,
 	RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, RuntimeTask, Session, SessionKeys,
 	System, WeightToFee, XcmpQueue, AVERAGE_ON_INITIALIZE_RATIO, CENTS, EXISTENTIAL_DEPOSIT, HOURS,
-	MAXIMUM_BLOCK_WEIGHT, MICRO_UNIT, NORMAL_DISPATCH_RATIO, SLOT_DURATION, VERSION,
+	MAXIMUM_BLOCK_WEIGHT, MICRO_UNIT, MILLI_UNIT, NORMAL_DISPATCH_RATIO, SLOT_DURATION, UNIT,
+	VERSION,
 };
 use xcm_config::{RelayLocation, XcmOriginToTransactDispatchOrigin};
 
@@ -345,4 +346,22 @@ impl pallet_collator_selection::Config for Runtime {
 impl pallet_parachain_template::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_parachain_template::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+	pub const OdotPalletId: PalletId = PalletId(*b"orb/odot");
+	/// Minimum oDOT deposit (0.01 UNIT).
+	pub const OdotMinimumDeposit: Balance = 10 * MILLI_UNIT;
+	/// Virtual dead shares / assets at genesis (inflation-attack floor, WHITEOBER §9.3).
+	pub const OdotDeadShares: Balance = 1_000 * UNIT;
+}
+
+impl pallet_odot::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type PalletId = OdotPalletId;
+	type MinimumDeposit = OdotMinimumDeposit;
+	type DeadShares = OdotDeadShares;
+	type AdminOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = pallet_odot::weights::SubstrateWeight<Runtime>;
 }

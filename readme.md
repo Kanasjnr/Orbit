@@ -26,11 +26,12 @@ Open PRs against `next-release` unless you are cutting a release into `main`.
 | `WHITEPAPER.md` | Protocol + economics spec (source of truth) |
 | `runtime/` | Orbit parachain runtime (Polkadot SDK template) |
 | `node/` | Optional collator node binary |
-| `pallets/template/` | Placeholder pallet (replaced by oDOT/eDOT in later PRs) |
+| `pallets/odot/` | oDOT vault pallet deposit, redeem, exchange-rate accounting (§9) |
+| `pallets/template/` | Template pallet (scaffold leftover; remove later) |
 | `zombienet.toml` / `zombienet-omni-node.toml` | Local network configs |
 | `dev_chain_spec.json` | Dev chain spec for Omni Node + Zombienet |
 
-Scaffold is based on [polkadot-sdk-parachain-template](https://github.com/paritytech/polkadot-sdk-parachain-template). Product pallets come next (whitepaper §17).
+Phase **B** (oDOT vault) is wired into the runtime. Hub reward accrual and unbond queues are later phases.
 
 ---
 
@@ -50,7 +51,19 @@ Full release build is slower:
 cargo build -p parachain-template-runtime --release
 ```
 
-Zombienet / Omni Node install and run are documented in later PRs once the network is wired for Orbit.
+### Zombienet (local proof)
+
+Build collator + relay (macOS: compile `polkadot` from `polkadot-stable2512`; Linux CI downloads release binaries):
+
+```bash
+cargo +1.93.1 build -p parachain-template-node --release
+export PATH="$PWD/target/release:$PATH"
+
+# network + oDOT deposit (relay, para 1000, extrinsic)
+npx --yes @zombienet/cli --provider native test .github/tests/zombienet-integration.zndsl
+```
+
+Polkadot.js on the collator WS port from Zombienet output (e.g. `ws://127.0.0.1:…`). `polkadot-omni-node --dev` is not the primary path Aura slot mismatch on mock relay.
 
 ---
 
