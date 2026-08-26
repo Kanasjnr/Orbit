@@ -140,3 +140,21 @@ fn donation_to_vault_does_not_inflate_mint_rate() {
 		assert_eq!(Shares::<Test>::get(BOB), 100);
 	});
 }
+
+#[test]
+fn queued_redeem_pays_after_unbond() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Odot::deposit(RuntimeOrigin::signed(ALICE), 100));
+		let before = Balances::free_balance(ALICE);
+		assert_ok!(Odot::request_redeem(RuntimeOrigin::signed(ALICE), 100));
+		assert_eq!(Shares::<Test>::get(ALICE), 0);
+		assert_eq!(TotalShares::<Test>::get(), DeadShares::get() + 100);
+		assert_noop!(
+			Odot::claim_redeem(RuntimeOrigin::signed(ALICE), 0),
+			Error::<Test>::NotUnlocked
+		);
+		System::set_block_number(System::block_number() + UnbondingPeriod::get());
+		assert_ok!(Odot::claim_redeem(RuntimeOrigin::signed(ALICE), 0));
+		assert_eq!(Balances::free_balance(ALICE) - before, 100);
+	});
+}
