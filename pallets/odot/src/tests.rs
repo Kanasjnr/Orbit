@@ -35,7 +35,7 @@ fn rewards_raise_rate_without_minting_shares() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Odot::deposit(RuntimeOrigin::signed(ALICE), 100));
 		let shares_before = Shares::<Test>::get(ALICE);
-		assert_ok!(Odot::accrue_rewards(RuntimeOrigin::root(), 100));
+		assert_ok!(Odot::do_credit_rewards(100));
 		assert_eq!(Shares::<Test>::get(ALICE), shares_before);
 		assert_eq!(TotalAssets::<Test>::get(), DeadShares::get() + 200);
 		assert_eq!(TotalShares::<Test>::get(), DeadShares::get() + 100);
@@ -48,7 +48,7 @@ fn rewards_raise_rate_without_minting_shares() {
 fn redeem_returns_pro_rata_assets() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Odot::deposit(RuntimeOrigin::signed(ALICE), 100));
-		assert_ok!(Odot::accrue_rewards(RuntimeOrigin::root(), 100));
+		assert_ok!(Odot::do_credit_rewards(100));
 		let alice_bal_before = Balances::free_balance(ALICE);
 		assert_ok!(Odot::redeem(RuntimeOrigin::signed(ALICE), 100));
 		assert_eq!(Shares::<Test>::get(ALICE), 0);
@@ -64,7 +64,7 @@ fn redeem_returns_pro_rata_assets() {
 fn second_depositor_gets_fewer_shares_after_accrual() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Odot::deposit(RuntimeOrigin::signed(ALICE), 100));
-		assert_ok!(Odot::accrue_rewards(RuntimeOrigin::root(), 100));
+		assert_ok!(Odot::do_credit_rewards(100));
 		assert_ok!(Odot::deposit(RuntimeOrigin::signed(BOB), 100));
 		// Bob: floor(100 * 1100 / 1200) = 91
 		assert_eq!(Shares::<Test>::get(BOB), 91);
@@ -100,16 +100,6 @@ fn zero_redeem_fails() {
 		assert_noop!(
 			Odot::redeem(RuntimeOrigin::signed(ALICE), 0),
 			Error::<Test>::ZeroSharesRedeem
-		);
-	});
-}
-
-#[test]
-fn non_admin_cannot_accrue() {
-	new_test_ext().execute_with(|| {
-		assert_noop!(
-			Odot::accrue_rewards(RuntimeOrigin::signed(ALICE), 10),
-			DispatchError::BadOrigin
 		);
 	});
 }

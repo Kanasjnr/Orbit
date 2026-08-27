@@ -33,7 +33,26 @@ jobs:
         run: SKIP_WASM_BUILD=1 cargo doc --workspace --no-deps
         timeout-minutes: 15
 
-  # WASM runtime build (pinned Rust 1.93.1 — catches linker / wasm32 issues).
+  scripts:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scripts
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: scripts/package-lock.json
+
+      - name: Install + codegen descriptors
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
   wasm:
     runs-on: ubuntu-latest
     steps:
@@ -45,7 +64,7 @@ jobs:
         run: cargo build -p parachain-template-runtime --release
         timeout-minutes: 90
 
-  # End-to-end: relay + Orbit para 1000 + oDOT/eDOT deposit extrinsics.
+  # Relay + Orbit para 1000: deposits + hubFeed.report* (Alice oracle).
   zombienet:
     runs-on: ubuntu-latest
     steps:

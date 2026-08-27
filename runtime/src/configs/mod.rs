@@ -37,14 +37,15 @@ use frame_support::{
 	dispatch::DispatchClass,
 	parameter_types,
 	traits::{
-		ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, TransformOrigin, VariantCountOf,
+		ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, SortedMembers, TransformOrigin,
+		VariantCountOf,
 	},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot,
+	EnsureRoot, EnsureSignedBy,
 };
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
@@ -348,7 +349,8 @@ parameter_types! {
 	pub const OdotMinimumDeposit: Balance = 10 * MILLI_UNIT;
 	/// Virtual dead shares / assets at genesis (inflation-attack floor).
 	pub const OdotDeadShares: Balance = 1_000 * UNIT;
-	/// PoC unbond delay (10 blocks). Production should track Hub ~24–48h unbonding.
+	/// PoC unbond delay (10 blocks). Not Hub-aligned: production should track ~24–48h /
+	/// ~28 eras on Hub; keep this short only for local Zombienet.
 	pub const OdotUnbondingPeriod: BlockNumber = 10;
 }
 
@@ -358,7 +360,6 @@ impl pallet_odot::Config for Runtime {
 	type PalletId = OdotPalletId;
 	type MinimumDeposit = OdotMinimumDeposit;
 	type DeadShares = OdotDeadShares;
-	type AdminOrigin = EnsureRoot<AccountId>;
 	type UnbondingPeriod = OdotUnbondingPeriod;
 	type WeightInfo = pallet_odot::weights::SubstrateWeight<Runtime>;
 }
@@ -369,7 +370,8 @@ parameter_types! {
 	pub const EdotMinimumDeposit: Balance = 10 * MILLI_UNIT;
 	/// Virtual dead shares / assets at genesis (inflation-attack floor).
 	pub const EdotDeadShares: Balance = 1_000 * UNIT;
-	/// PoC unbond delay (10 blocks). Production should track Hub ~24–48h unbonding.
+	/// PoC unbond delay (10 blocks). Not Hub-aligned: production should track ~24–48h /
+	/// ~28 eras on Hub; keep this short only for local Zombienet.
 	pub const EdotUnbondingPeriod: BlockNumber = 10;
 }
 
@@ -379,9 +381,21 @@ impl pallet_edot::Config for Runtime {
 	type PalletId = EdotPalletId;
 	type MinimumDeposit = EdotMinimumDeposit;
 	type DeadShares = EdotDeadShares;
-	type AdminOrigin = EnsureRoot<AccountId>;
 	type UnbondingPeriod = EdotUnbondingPeriod;
 	type WeightInfo = pallet_edot::weights::SubstrateWeight<Runtime>;
+}
+
+/// PoC Hub-feed oracle: Alice's sr25519 public key.
+/// Production should replace with a multisig / oracle set (not a single hot key).
+pub struct HubFeedOracle;
+impl SortedMembers<AccountId> for HubFeedOracle {
+	fn sorted_members() -> alloc::vec::Vec<AccountId> {
+		alloc::vec![AccountId::from([
+			0xd4, 0x35, 0x93, 0xc7, 0x15, 0xfd, 0xd3, 0x1c, 0x61, 0x14, 0x1a, 0xbd, 0x04, 0xa9, 0x9f,
+			0xd6, 0x82, 0x2c, 0x85, 0x58, 0x85, 0x4c, 0xcd, 0xe3, 0x9a, 0x56, 0x84, 0xe7, 0xa5, 0x6d,
+			0xa2, 0x7d,
+		])]
+	}
 }
 
 /// Routes Hub nomination rewards into the oDOT vault.
@@ -409,7 +423,7 @@ impl pallet_hub_feed::SelfStakeVaultSink for EdotHubSink {
 
 impl pallet_hub_feed::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type FeedOrigin = EnsureRoot<AccountId>;
+	type FeedOrigin = EnsureSignedBy<HubFeedOracle, AccountId>;
 	type NominationVault = OdotHubSink;
 	type SelfStakeVault = EdotHubSink;
 	type WeightInfo = pallet_hub_feed::weights::SubstrateWeight<Runtime>;

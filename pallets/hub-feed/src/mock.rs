@@ -2,7 +2,7 @@ use crate::{traits::*, Config as HubConfig};
 use core::cell::RefCell;
 use frame::{
 	deps::{
-		frame_support::weights::constants::RocksDbWeight,
+		frame_support::{ord_parameter_types, weights::constants::RocksDbWeight},
 		frame_system::GenesisConfig as SystemGenesisConfig,
 		sp_runtime::BuildStorage,
 	},
@@ -89,18 +89,27 @@ impl SelfStakeVaultSink for MockSelfStake {
 	}
 	fn apply_hub_slash(amount: Self::Balance) -> Result<Self::Balance, DispatchError> {
 		let cap = SLASH_CAP.with(|v| *v.borrow());
-		let applied = amount.min(cap);
-		SLASHED.with(|v| *v.borrow_mut() += applied);
-		Ok(applied)
+		ensure!(amount <= cap, DispatchError::Other("SlashExceedsSlashable"));
+		SLASHED.with(|v| *v.borrow_mut() += amount);
+		Ok(amount)
 	}
 }
 
 impl HubConfig for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type FeedOrigin = frame_system::EnsureRoot<u64>;
+	/// PoC: account 42 is the feed oracle (not Root).
+	type FeedOrigin = frame_system::EnsureSignedBy<FeedOracle, u64>;
 	type NominationVault = MockNomination;
 	type SelfStakeVault = MockSelfStake;
 	type WeightInfo = ();
+}
+
+ord_parameter_types! {
+	pub const FeedOracle: u64 = 42;
+}
+
+pub fn feed_origin() -> RuntimeOrigin {
+	RuntimeOrigin::signed(FeedOracle::get())
 }
 
 pub fn new_test_ext() -> TestState {

@@ -24,6 +24,6 @@ pub trait SelfStakeVaultSink {
 
 	fn credit_self_stake_rewards(amount: Self::Balance) -> DispatchResult;
 
-	/// Returns the amount actually applied (may be capped at slashable balance).
+	/// Applies an exact Hub slash; must fail (not under-apply) if amount exceeds slashable assets.
 	fn apply_hub_slash(amount: Self::Balance) -> Result<Self::Balance, DispatchError>;
 }

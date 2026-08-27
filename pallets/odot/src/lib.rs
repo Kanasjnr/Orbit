@@ -4,7 +4,7 @@
 //!
 //! - Deposit DOT → mint oDOT shares at `rate = V / S`
 //! - Redeem shares → burn and return DOT (instant for Phase B; unbond queue later)
-//! - Accrue rewards by increasing `V` without minting shares (Hub wiring is Phase D)
+//! - Accrue rewards only via `pallet-hub-feed` (no admin mint path)
 //!
 //! Hub slash never reduces `V_oDOT` (§10.1A). This pallet has no slash path.
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -28,7 +28,6 @@ pub mod pallet {
 		traits::{
 			fungible::{Inspect, Mutate},
 			tokens::Preservation,
-			EnsureOrigin,
 		},
 	};
 
@@ -56,9 +55,6 @@ pub mod pallet {
 		/// Never held by any account; never redeemable.
 		#[pallet::constant]
 		type DeadShares: Get<BalanceOf<Self>>;
-
-		/// Origin allowed to credit reward accrual into `V` without minting shares.
-		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Blocks a protocol redeem must wait before `claim_redeem` (MVP stand-in for Hub unbond).
 		#[pallet::constant]
@@ -312,16 +308,6 @@ pub mod pallet {
 			});
 			Ok(())
 		}
-
-		/// Credit staking rewards into `V` without minting shares (rate rises).
-		///
-		/// Ops fallback. Prefer `pallet-hub-feed` reporting observed Hub nomination rewards.
-		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::accrue_rewards())]
-		pub fn accrue_rewards(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
-			T::AdminOrigin::ensure_origin(origin)?;
-			Self::do_credit_rewards(amount)
-		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -330,7 +316,7 @@ pub mod pallet {
 			T::PalletId::get().into_account_truncating()
 		}
 
-		/// Credit `amount` into `V` (mint into vault). Used by hub-feed and admin accrue.
+		/// Credit `amount` into `V` (mint into vault). Called only via `pallet-hub-feed`.
 		pub fn do_credit_rewards(amount: BalanceOf<T>) -> DispatchResult {
 			ensure!(!amount.is_zero(), Error::<T>::DepositTooSmall);
 
