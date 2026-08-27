@@ -1,0 +1,9 @@
+{
+  "_comment": "Lab plumbing only public Hub validators from active era 2274. Not Orbit-owned. Swap for Orbit stashes before treating NAV as real.",
+  "nominationStashes": [
+    "1zugcag7cJVBtVRnFxv5Qftn7xKAnR6YJ9x4x3XLgGgmNnS"
+  ],
+  "selfStakeStashes": [
+    "13iWeBT4h5FtBAYkZBkoMmyzXv7PUrEMigtag1YQc4NhLwHs"
+  ]
+}

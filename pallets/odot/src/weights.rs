@@ -1,4 +1,4 @@
-//!  weights for `pallet-odot` (replace with runtime benchmarks before mainnet).
+//! Placeholder weights for `pallet-odot` (replace with runtime benchmarks before mainnet).
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
@@ -12,7 +12,6 @@ pub trait WeightInfo {
 	fn redeem() -> Weight;
 	fn request_redeem() -> Weight;
 	fn claim_redeem() -> Weight;
-	fn accrue_rewards() -> Weight;
 }
 
 #[cfg_attr(
@@ -43,11 +42,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
-	fn accrue_rewards() -> Weight {
-		Weight::from_parts(30_000_000, 0)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
-	}
 }
 
 impl WeightInfo for () {
@@ -70,10 +64,5 @@ impl WeightInfo for () {
 		Weight::from_parts(50_000_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
-	}
-	fn accrue_rewards() -> Weight {
-		Weight::from_parts(30_000_000, 0)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 }

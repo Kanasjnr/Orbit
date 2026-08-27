@@ -71,7 +71,6 @@ impl crate::Config for Test {
 	type PalletId = OdotPalletId;
 	type MinimumDeposit = MinDeposit;
 	type DeadShares = DeadShares;
-	type AdminOrigin = frame_system::EnsureRoot<u64>;
 	type UnbondingPeriod = UnbondingPeriod;
 	type WeightInfo = ();
 }
