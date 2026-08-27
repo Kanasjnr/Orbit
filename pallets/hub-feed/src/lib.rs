@@ -39,7 +39,7 @@ pub mod pallet {
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		/// Origin allowed to submit observed Hub events (Root in PoC; oracle later).
+		/// Origin allowed to submit observed Hub events (dedicated oracle key; not Root).
 		type FeedOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// oDOT nomination vault sink.
@@ -74,7 +74,7 @@ pub mod pallet {
 		NominationRewardReported { hub_event_id: HubEventId, era: u32, amount: BalanceOf<T> },
 		/// Self-stake rewards credited to eDOT.
 		SelfStakeRewardReported { hub_event_id: HubEventId, era: u32, amount: BalanceOf<T> },
-		/// Hub slash applied to eDOT (`applied` may be less than `amount` if capped).
+		/// Hub slash applied to eDOT (exact `amount`; sink must not under-apply).
 		SlashReported {
 			hub_event_id: HubEventId,
 			era: u32,

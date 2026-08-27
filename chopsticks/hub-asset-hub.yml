@@ -1,0 +1,14 @@
+# Chopsticks — fork Polkadot Asset Hub (staking lives here post Nov 2025).
+# Docs: https://github.com/AcalaNetwork/chopsticks
+#
+#   npx @acala-network/chopsticks --config chopsticks/hub-asset-hub.yml
+#
+# Then observe with (Node >= 22.4):
+#   cd scripts && HUB_WS=ws://127.0.0.1:8000 npm run observe:dry
+
+endpoint: wss://polkadot-asset-hub-rpc.polkadot.io
+# Optional: pin a finalized block for reproducible runs
+# block: '0x...'
+
+port: 8000
+build-block-mode: Instant

@@ -4,3 +4,7 @@ target/
 parachain-template.tgz
 .template-tmp/
 chain_spec.json
+node_modules/
+scripts/node_modules/
+scripts/hub-stashes.json
+bin/

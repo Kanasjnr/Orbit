@@ -46,7 +46,7 @@ fn rewards_raise_rate_without_minting_shares() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Edot::deposit(RuntimeOrigin::signed(ALICE), 100));
 		let shares_before = Shares::<Test>::get(ALICE);
-		assert_ok!(Edot::accrue_rewards(RuntimeOrigin::root(), 100));
+		assert_ok!(Edot::do_credit_rewards(100));
 		assert_eq!(Shares::<Test>::get(ALICE), shares_before);
 		assert_eq!(TotalAssets::<Test>::get(), DeadShares::get() + 200);
 		assert_eq!(TotalShares::<Test>::get(), DeadShares::get() + 100);
@@ -60,7 +60,7 @@ fn slash_lowers_rate_without_burning_shares() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Edot::deposit(RuntimeOrigin::signed(ALICE), 100));
 		let shares_before = Shares::<Test>::get(ALICE);
-		assert_ok!(Edot::apply_slash(RuntimeOrigin::root(), 40));
+		assert_ok!(Edot::do_apply_slash(40));
 		assert_eq!(Shares::<Test>::get(ALICE), shares_before);
 		assert_eq!(TotalShares::<Test>::get(), DeadShares::get() + 100);
 		assert_eq!(TotalAssets::<Test>::get(), DeadShares::get() + 60);
@@ -74,15 +74,17 @@ fn slash_lowers_rate_without_burning_shares() {
 }
 
 #[test]
-fn slash_caps_at_real_assets_preserving_dead_floor() {
+fn slash_rejects_amount_above_slashable() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Edot::deposit(RuntimeOrigin::signed(ALICE), 100));
-		assert_ok!(Edot::apply_slash(RuntimeOrigin::root(), 10_000));
+		assert_noop!(
+			Edot::do_apply_slash(10_000),
+			Error::<Test>::SlashExceedsSlashable
+		);
+		assert_ok!(Edot::do_apply_slash(100));
 		assert_eq!(TotalAssets::<Test>::get(), DeadShares::get());
 		assert_eq!(TotalSlashed::<Test>::get(), 100);
-		assert_eq!(TotalShares::<Test>::get(), DeadShares::get() + 100);
 		assert_eq!(vault_free(), DeadShares::get());
-		assert_eq!(Edot::convert_to_assets(100).unwrap(), 90);
 	});
 }
 
@@ -90,7 +92,7 @@ fn slash_caps_at_real_assets_preserving_dead_floor() {
 fn claim_after_slash_returns_impaired_assets() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Edot::deposit(RuntimeOrigin::signed(ALICE), 100));
-		assert_ok!(Edot::apply_slash(RuntimeOrigin::root(), 40));
+		assert_ok!(Edot::do_apply_slash(40));
 		let alice_bal_before = Balances::free_balance(ALICE);
 		queue_claim(ALICE, 100);
 		assert_eq!(Shares::<Test>::get(ALICE), 0);
@@ -105,7 +107,7 @@ fn claim_after_slash_returns_impaired_assets() {
 fn second_depositor_gets_more_shares_after_slash() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Edot::deposit(RuntimeOrigin::signed(ALICE), 100));
-		assert_ok!(Edot::apply_slash(RuntimeOrigin::root(), 40));
+		assert_ok!(Edot::do_apply_slash(40));
 		assert_ok!(Edot::deposit(RuntimeOrigin::signed(BOB), 100));
 		assert_eq!(Shares::<Test>::get(BOB), 103);
 		assert!(Shares::<Test>::get(BOB) > Shares::<Test>::get(ALICE));
@@ -148,28 +150,14 @@ fn zero_redeem_fails() {
 fn zero_slash_fails() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Edot::deposit(RuntimeOrigin::signed(ALICE), 100));
-		assert_noop!(Edot::apply_slash(RuntimeOrigin::root(), 0), Error::<Test>::ZeroSlash);
-	});
-}
-
-#[test]
-fn non_admin_cannot_slash_or_accrue() {
-	new_test_ext().execute_with(|| {
-		assert_noop!(
-			Edot::accrue_rewards(RuntimeOrigin::signed(ALICE), 10),
-			DispatchError::BadOrigin
-		);
-		assert_noop!(
-			Edot::apply_slash(RuntimeOrigin::signed(ALICE), 10),
-			DispatchError::BadOrigin
-		);
+		assert_noop!(Edot::do_apply_slash(0), Error::<Test>::ZeroSlash);
 	});
 }
 
 #[test]
 fn slash_with_only_dead_assets_fails() {
 	new_test_ext().execute_with(|| {
-		assert_noop!(Edot::apply_slash(RuntimeOrigin::root(), 1), Error::<Test>::NothingToSlash);
+		assert_noop!(Edot::do_apply_slash(1), Error::<Test>::NothingToSlash);
 	});
 }
 
@@ -192,7 +180,7 @@ fn slash_socializes_loss_across_two_holders() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Edot::deposit(RuntimeOrigin::signed(ALICE), 100));
 		assert_ok!(Edot::deposit(RuntimeOrigin::signed(BOB), 100));
-		assert_ok!(Edot::apply_slash(RuntimeOrigin::root(), 60));
+		assert_ok!(Edot::do_apply_slash(60));
 		assert_eq!(Shares::<Test>::get(ALICE), 100);
 		assert_eq!(Shares::<Test>::get(BOB), 100);
 		assert_eq!(Edot::convert_to_assets(100).unwrap(), 95);
@@ -204,8 +192,8 @@ fn slash_socializes_loss_across_two_holders() {
 fn accrue_then_slash_nets_rate() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Edot::deposit(RuntimeOrigin::signed(ALICE), 100));
-		assert_ok!(Edot::accrue_rewards(RuntimeOrigin::root(), 50));
-		assert_ok!(Edot::apply_slash(RuntimeOrigin::root(), 20));
+		assert_ok!(Edot::do_credit_rewards(50));
+		assert_ok!(Edot::do_apply_slash(20));
 		assert_eq!(TotalAssets::<Test>::get(), 1130);
 		assert_eq!(Edot::convert_to_assets(100).unwrap(), 102);
 		assert_eq!(vault_free(), 1130);
@@ -216,8 +204,8 @@ fn accrue_then_slash_nets_rate() {
 fn sequential_slashes_accumulate_total_slashed() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Edot::deposit(RuntimeOrigin::signed(ALICE), 100));
-		assert_ok!(Edot::apply_slash(RuntimeOrigin::root(), 10));
-		assert_ok!(Edot::apply_slash(RuntimeOrigin::root(), 15));
+		assert_ok!(Edot::do_apply_slash(10));
+		assert_ok!(Edot::do_apply_slash(15));
 		assert_eq!(TotalSlashed::<Test>::get(), 25);
 		assert_eq!(TotalAssets::<Test>::get(), DeadShares::get() + 75);
 	});
@@ -271,7 +259,7 @@ fn slash_during_unbond_impairs_queued_claim() {
 		assert_ok!(Edot::deposit(RuntimeOrigin::signed(ALICE), 100));
 		let before = Balances::free_balance(ALICE);
 		assert_ok!(Edot::request_redeem(RuntimeOrigin::signed(ALICE), 100));
-		assert_ok!(Edot::apply_slash(RuntimeOrigin::root(), 40));
+		assert_ok!(Edot::do_apply_slash(40));
 		System::set_block_number(System::block_number() + UnbondingPeriod::get());
 		assert_ok!(Edot::claim_redeem(RuntimeOrigin::signed(ALICE), 0));
 		assert_eq!(Balances::free_balance(ALICE) - before, 96);

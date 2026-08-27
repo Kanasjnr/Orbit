@@ -33,7 +33,7 @@ Open PRs from **`next-release` → `main`**. All feature work lands on `next-rel
 | `zombienet.toml` / `zombienet-omni-node.toml` | Local network configs |
 | `dev_chain_spec.json` | Dev chain spec for Omni Node + Zombienet |
 
-Phases **B–D.1** (oDOT, eDOT, unbond queues) and **D.2** (`pallet-hub-feed`) are on `next-release`. Chopsticks observes Hub; Zombienet proves the parachain.
+Phases **B–D.2** (vaults, unbond queues, `pallet-hub-feed`) are on the trunk. Hub observation uses **PAPI** typed descriptors + finalized-event watches (`scripts/hub-feed-observe.ts`); Chopsticks is an optional local fork. PR CI typechecks scripts and exercises `hubFeed.report*` in Zombienet full Chopsticks+observe stays local (see `chopsticks/README.md`). Unbond delay is still a short PoC (not Hub-aligned).
 
 ---
 

@@ -4,8 +4,8 @@
 //!
 //! - Deposit DOT → mint eDOT shares at `rate = V / S`
 //! - Protocol redeem queues for `UnbondingPeriod` then pays at claim-time rate (§12, §14.5)
-//! - Accrue rewards by increasing `V` without minting shares (Hub observation is later)
-//! - Apply Hub slash by decreasing `V` without burning shares (rate falls, §10.1A)
+//! - Accrue rewards / apply slash only via `pallet-hub-feed` (no admin mint/slash path)
+//! - Queued redeem for `UnbondingPeriod` then pays at claim-time rate (§12, §14.5)
 //!
 //! Queued shares stay in `S` until claim, so a slash during unbond still socializes.
 //!
@@ -31,7 +31,6 @@ pub mod pallet {
 		traits::{
 			fungible::{Inspect, Mutate},
 			tokens::{Fortitude, Precision, Preservation},
-			EnsureOrigin,
 		},
 	};
 
@@ -59,9 +58,6 @@ pub mod pallet {
 		/// Never held by any account; never redeemable.
 		#[pallet::constant]
 		type DeadShares: Get<BalanceOf<Self>>;
-
-		/// Origin allowed to credit rewards or apply Hub slash accounting into `V`.
-		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Blocks a protocol redeem must wait before `claim_redeem` (MVP stand-in for Hub unbond).
 		#[pallet::constant]
@@ -150,6 +146,8 @@ pub mod pallet {
 		ZeroSlash,
 		/// No real (non-dead) assets available to slash.
 		NothingToSlash,
+		/// Reported slash exceeds slashable (non-dead) assets; refuse partial apply.
+		SlashExceedsSlashable,
 		/// Redeem request does not exist for this account.
 		UnknownRedeemRequest,
 		/// Unbonding period has not elapsed.
@@ -290,25 +288,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Credit staking rewards into `V` without minting shares (rate rises).
-		///
-		/// Ops fallback. Prefer `pallet-hub-feed` reporting observed Hub self-stake rewards.
-		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::accrue_rewards())]
-		pub fn accrue_rewards(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
-			T::AdminOrigin::ensure_origin(origin)?;
-			Self::do_credit_rewards(amount)
-		}
-
-		/// Apply a Hub self-stake slash to the eDOT vault.
-		///
-		/// Ops fallback. Prefer `pallet-hub-feed` reporting observed Hub slash events.
-		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::apply_slash())]
-		pub fn apply_slash(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
-			T::AdminOrigin::ensure_origin(origin)?;
-			Self::do_apply_slash(amount).map(|_| ())
-		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -317,7 +296,7 @@ pub mod pallet {
 			T::PalletId::get().into_account_truncating()
 		}
 
-		/// Credit `amount` into `V` (mint into vault). Used by hub-feed and admin accrue.
+		/// Credit `amount` into `V` (mint into vault). Called only via `pallet-hub-feed`.
 		pub fn do_credit_rewards(amount: BalanceOf<T>) -> DispatchResult {
 			ensure!(!amount.is_zero(), Error::<T>::DepositTooSmall);
 
@@ -332,7 +311,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Apply slash of up to `amount`, capped at non-dead assets. Returns applied amount.
+		/// Apply an exact Hub slash. Fails if `amount` exceeds slashable (non-dead) assets
+		/// so feed dedup cannot permanently under-apply a Hub loss.
 		pub fn do_apply_slash(amount: BalanceOf<T>) -> Result<BalanceOf<T>, DispatchError> {
 			ensure!(!amount.is_zero(), Error::<T>::ZeroSlash);
 
@@ -340,27 +320,27 @@ pub mod pallet {
 			let dead = T::DeadShares::get();
 			let slashable = total_assets.saturating_sub(dead);
 			ensure!(!slashable.is_zero(), Error::<T>::NothingToSlash);
+			ensure!(amount <= slashable, Error::<T>::SlashExceedsSlashable);
 
-			let applied = amount.min(slashable);
-			let new_total = total_assets.checked_sub(&applied).ok_or(Error::<T>::Arithmetic)?;
+			let new_total = total_assets.checked_sub(&amount).ok_or(Error::<T>::Arithmetic)?;
 
 			let vault = Self::account_id();
 			let burned = T::Currency::burn_from(
 				&vault,
-				applied,
+				amount,
 				Preservation::Expendable,
 				Precision::Exact,
 				Fortitude::Force,
 			)?;
-			ensure!(burned == applied, Error::<T>::Arithmetic);
+			ensure!(burned == amount, Error::<T>::Arithmetic);
 
 			TotalAssets::<T>::put(new_total);
 			TotalSlashed::<T>::put(
-				TotalSlashed::<T>::get().checked_add(&applied).ok_or(Error::<T>::Arithmetic)?,
+				TotalSlashed::<T>::get().checked_add(&amount).ok_or(Error::<T>::Arithmetic)?,
 			);
 
-			Self::deposit_event(Event::Slashed { amount: applied, total_assets: new_total });
-			Ok(applied)
+			Self::deposit_event(Event::Slashed { amount, total_assets: new_total });
+			Ok(amount)
 		}
 
 		/// Current exchange rate numerator/denominator as `(V, S)`. Rate is `V/S`.
