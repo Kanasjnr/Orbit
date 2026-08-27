@@ -39,13 +39,12 @@ async function setStorage(provider: WsProvider, storage: Record<string, unknown>
 
 async function pickValidators(api: ApiPromise): Promise<string[]> {
 	// session.validators is a small Vec — never page ErasStakers* on a live fork.
-	const session = await api.query.session.validators();
+	const session = (await api.query.session.validators()) as unknown as Array<{ toString(): string }>;
 	const list = session.map((a) => a.toString()).slice(0, nominateCount);
 	if (list.length > 0) return list;
 
-	const active = await api.query.staking.activeEra();
-	const era = active.unwrapOrDefault().index.toNumber();
-	// Single known keys via erasStakersPaged is still heavy; fall back to prefs keys with limit.
+	const active = (await api.query.staking.activeEra()) as any;
+	const era = Number(active.unwrapOrDefault().index);
 	const prefs = await api.query.staking.validators.keys();
 	const fromPrefs = prefs.slice(0, nominateCount).map((k) => k.args[0].toString());
 	if (fromPrefs.length === 0) {
@@ -81,7 +80,7 @@ async function main() {
 	const targets = await pickValidators(api);
 	console.log(`nominate targets (${targets.length}): ${targets.join(", ")}`);
 
-	const era = (await api.query.staking.activeEra()).unwrapOrDefault().index.toNumber();
+	const era = Number(((await api.query.staking.activeEra()) as any).unwrapOrDefault().index);
 	const minNom = BigInt((await api.query.staking.minNominatorBond()).toString());
 	if (nomBond < minNom) throw new Error(`nom bond ${nomBond} < MinNominatorBond ${minNom}`);
 
@@ -117,14 +116,16 @@ async function main() {
 	console.log(`funded ${fundAmount / DOT} DOT each`);
 	console.log(`bonded nom=${nomBond / DOT} DOT self=${selfBond / DOT} DOT + nominators map`);
 
-	const ledgerNom = await api.query.staking.ledger(nom.address);
-	const ledgerSelf = await api.query.staking.ledger(self.address);
-	const nominators = await api.query.staking.nominators(nom.address);
+	const ledgerNom = (await api.query.staking.ledger(nom.address)) as any;
+	const ledgerSelf = (await api.query.staking.ledger(self.address)) as any;
+	const nominators = (await api.query.staking.nominators(nom.address)) as any;
 	if (ledgerNom.isNone) throw new Error("nomination ledger missing after setStorage");
 	if (ledgerSelf.isNone) throw new Error("self-stake ledger missing after setStorage");
 	if (nominators.isNone) throw new Error("nominators map missing for OrbitNom");
 
-	const freeNom = (await api.query.system.account(nom.address)).data.free.toBigInt();
+	const freeNom = BigInt(
+		((await api.query.system.account(nom.address)) as any).data.free.toString(),
+	);
 	if (freeNom < fundAmount / 2n) {
 		throw new Error(`unexpected free balance ${freeNom} for OrbitNom`);
 	}
