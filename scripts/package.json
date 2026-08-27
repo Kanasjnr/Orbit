@@ -11,6 +11,7 @@
     "papi:add": "papi add pah -n polkadot_asset_hub",
     "observe": "tsx hub-feed-observe.ts",
     "observe:dry": "tsx hub-feed-observe.ts --dry-run",
+    "hub:setup": "tsx hub-stake-setup.ts",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {

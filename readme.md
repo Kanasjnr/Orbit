@@ -29,11 +29,10 @@ Open PRs from **`next-release` → `main`**. All feature work lands on `next-rel
 | `pallets/odot/` | oDOT vault pallet deposit, redeem, exchange-rate accounting (§9) |
 | `pallets/edot/` | eDOT vault pallet deposit, redeem, queue, Hub slash (§9–10) |
 | `pallets/hub-feed/` | Hub observation ingress: nomination/self-stake rewards + eDOT slash (§17) |
-| `chopsticks/` | Chopsticks Hub-fork config for feed PoC |
-| `zombienet.toml` / `zombienet-omni-node.toml` | Local network configs |
-| `dev_chain_spec.json` | Dev chain spec for Omni Node + Zombienet |
+| `chopsticks/` | Chopsticks Asset Hub fork + Hub stake lab (`hub:setup`) |
+| `scripts/` | PAPI observer + Chopsticks Hub bond/nominate setup |
 
-Phases **B–D.2** (vaults, unbond queues, `pallet-hub-feed`) are on the trunk. Hub observation uses **PAPI** typed descriptors + finalized-event watches (`scripts/hub-feed-observe.ts`); Chopsticks is an optional local fork. PR CI typechecks scripts and exercises `hubFeed.report*` in Zombienet full Chopsticks+observe stays local (see `chopsticks/README.md`). Unbond delay is still a short PoC (not Hub-aligned).
+Phases **B–D.2** (vaults, unbond queues, `pallet-hub-feed`) are on the trunk. Hub lab: Chopsticks `npm run hub:setup` bonds Orbit stashes on forked Asset Hub, then `hub-feed-observe.ts` watches them. PR CI typechecks scripts and exercises synthetic `hubFeed.report*` in Zombienet. Unbond delay is still a short PoC (not Hub-aligned).
 
 ---
 
