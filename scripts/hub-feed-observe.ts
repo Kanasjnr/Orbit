@@ -7,78 +7,41 @@
  *
  * Stashes: hub-stashes.json (see hub-stashes.example.json)
  * Hub WS:  https://papi.how/providers/ws/
+ *
+ * Options:
+ *   --dry-run          log only
+ *   --dump-all         log skipped stashes
+ *   --timeout=SECONDS  exit after wall time (default: run until SIGINT)
  */
 
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { blake2b } from "@noble/hashes/blake2b";
 import { pah } from "@polkadot-api/descriptors";
 import type { BlockInfo } from "polkadot-api";
 import { createWsClient } from "polkadot-api/ws";
-import { ApiPromise, WsProvider } from "@polkadot/api";
-import { Keyring } from "@polkadot/keyring";
 import { WebSocket } from "ws";
-
-const dir = path.dirname(fileURLToPath(import.meta.url));
+import {
+	connectOrbit,
+	defaultStashFile,
+	hubFeedOracle,
+	loadStashes,
+	reportToOrbit,
+} from "./hub-feed-lib.js";
 
 const hubWs = process.env.HUB_WS ?? "wss://polkadot-asset-hub-rpc.polkadot.io";
 const orbitWs = process.env.ORBIT_WS ?? "ws://127.0.0.1:9944";
 const dryRun = process.argv.includes("--dry-run") || process.env.DRY_RUN === "1";
 const dumpAll = process.argv.includes("--dump-all");
-const stashFile =
-	process.env.HUB_STASHES ??
-	(fs.existsSync(path.join(dir, "hub-stashes.json"))
-		? path.join(dir, "hub-stashes.json")
-		: path.join(dir, "hub-stashes.example.json"));
+const timeoutArg = process.argv.find((a) => a.startsWith("--timeout="));
+const timeoutSec = timeoutArg ? Number(timeoutArg.split("=")[1]) : 0;
+const stashFile = process.env.HUB_STASHES ?? defaultStashFile();
 
-
-const stashJson = JSON.parse(fs.readFileSync(stashFile, "utf8")) as {
-	nominationStashes?: string[];
-	selfStakeStashes?: string[];
-};
+const stashJson = loadStashes(stashFile);
 const nomination = new Set(stashJson.nominationStashes ?? []);
 const selfStake = new Set(stashJson.selfStakeStashes ?? []);
-
-
-function eventId(blockHash: string, index: number, kind: string, amount: bigint) {
-	const head = Buffer.from(blockHash.replace(/^0x/, ""), "hex");
-	const tail = Buffer.from(`|${index}|${kind}|${amount}`);
-	return blake2b(Buffer.concat([head, tail]), { dkLen: 32 });
-}
 
 function extrinsicIndex(ev: { original?: { phase?: { type: string; value?: number } } }, fallback: number) {
 	const phase = ev.original?.phase;
 	return phase?.type === "ApplyExtrinsic" ? (phase.value ?? fallback) : fallback;
 }
-
-async function connectOrbit() {
-	const api = await ApiPromise.create({
-		provider: new WsProvider(orbitWs, 2_500, {}, 15_000),
-		throwOnConnect: true,
-	});
-	await api.isReadyOrError;
-	if (!api.tx.hubFeed) throw new Error(`no hubFeed pallet at ${orbitWs}`);
-	return api;
-}
-
-function signAndWait(api: ApiPromise, pair: ReturnType<Keyring["addFromUri"]>, call: any) {
-	return new Promise<string>((resolve, reject) => {
-		call.signAndSend(pair, ({ status, dispatchError }: any) => {
-			if (dispatchError) {
-				if (dispatchError.isModule) {
-					const m = api.registry.findMetaError(dispatchError.asModule);
-					reject(new Error(`${m.section}.${m.name}`));
-				} else {
-					reject(new Error(dispatchError.toString()));
-				}
-			} else if (status.isFinalized) {
-				resolve(status.asFinalized.toHex());
-			}
-		});
-	});
-}
-
 
 async function main() {
 	console.log(`stashes ${stashFile}  nom=${nomination.size} self=${selfStake.size}  dry=${dryRun}`);
@@ -90,10 +53,8 @@ async function main() {
 	let era = (await hub.query.Staking.ActiveEra.getValue())?.index ?? 0;
 	console.log(`activeEra ${era}`);
 
-	const orbit = dryRun ? null : await connectOrbit();
-	const oracle = dryRun
-		? null
-		: new Keyring({ type: "sr25519" }).addFromUri(process.env.ORBIT_ORACLE_URI ?? "//Alice");
+	const orbit = dryRun ? null : await connectOrbit(orbitWs);
+	const oracle = dryRun ? null : hubFeedOracle();
 	if (orbit) console.log(`orbit ${orbitWs}`);
 
 	const stats = { nom: 0, self: 0, slash: 0, skip: 0, ok: 0 };
@@ -115,29 +76,24 @@ async function main() {
 		else stats.self++;
 
 		const useEra = eraOverride ?? era;
-		const id = eventId(block.hash, index, kind, amount);
 		console.log(
 			`[${dryRun ? "dry" : "tx"}] #${block.number}[${index}] ${kind} ${account} ${amount} era=${useEra}`,
 		);
 
 		if (!orbit || !oracle) return;
 
-		const bytes = Array.from(id);
-		const tx =
-			kind === "slash"
-				? orbit.tx.hubFeed.reportSlash(bytes, useEra, amount)
-				: kind === "nom-reward"
-					? orbit.tx.hubFeed.reportNominationReward(bytes, useEra, amount)
-					: orbit.tx.hubFeed.reportSelfStakeReward(bytes, useEra, amount);
-
-		try {
-			console.log(`  finalized ${await signAndWait(orbit, oracle, tx)}`);
-			stats.ok++;
-		} catch (e: any) {
-			const msg = e?.message ?? String(e);
-			if (msg.includes("DuplicateHubEvent")) console.log("  dedup");
-			else console.error(`  fail ${msg}`);
-		}
+		const res = await reportToOrbit(
+			orbit,
+			oracle,
+			kind,
+			account,
+			amount,
+			block.hash,
+			index,
+			useEra,
+			false,
+		);
+		if (res === "ok") stats.ok++;
 	}
 
 	async function onRewarded(block: BlockInfo, events: any[]) {
@@ -177,7 +133,8 @@ async function main() {
 		}
 	}
 
-	console.log("watching Rewarded / Slashed / ValidatorIncentivePaid )");
+	console.log("watching Rewarded / Slashed / ValidatorIncentivePaid");
+	if (timeoutSec > 0) console.log(`timeout ${timeoutSec}s`);
 
 	const subs = [
 		hub.event.Staking.Rewarded.watch().subscribe(({ block, events }: { block: BlockInfo; events: any[] }) => {
@@ -208,6 +165,10 @@ async function main() {
 	};
 	process.on("SIGINT", () => void stop());
 	process.on("SIGTERM", () => void stop());
+
+	if (timeoutSec > 0) {
+		setTimeout(() => void stop(), timeoutSec * 1000);
+	}
 }
 
 main().catch((e) => {

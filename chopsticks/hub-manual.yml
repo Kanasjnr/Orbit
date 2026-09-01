@@ -1,0 +1,6 @@
+# Chopsticks — Manual block build for hub:payout when Instant panics.
+# Same fork as hub-asset-hub.yml; use when dev_newBlock hits Aura timestamp errors.
+
+endpoint: wss://polkadot-asset-hub-rpc.polkadot.io
+port: 8000
+build-block-mode: Manual

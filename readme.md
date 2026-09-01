@@ -30,9 +30,9 @@ Open PRs from **`next-release` → `main`**. All feature work lands on `next-rel
 | `pallets/edot/` | eDOT vault pallet deposit, redeem, queue, Hub slash (§9–10) |
 | `pallets/hub-feed/` | Hub observation ingress: nomination/self-stake rewards + eDOT slash (§17) |
 | `chopsticks/` | Chopsticks Asset Hub fork + Hub stake lab (`hub:setup`) |
-| `scripts/` | PAPI observer + Chopsticks Hub bond/nominate setup |
+| `scripts/` | PAPI observer + Chopsticks Hub bond/nominate setup + **hub loop smoke** |
 
-Phases **B–D.2** (vaults, unbond queues, `pallet-hub-feed`) are on the trunk. Hub lab: Chopsticks `npm run hub:setup` bonds Orbit stashes on forked Asset Hub, then `hub-feed-observe.ts` watches them. PR CI typechecks scripts and exercises synthetic `hubFeed.report*` in Zombienet. Unbond delay is still a short PoC (not Hub-aligned).
+Phases **B–D.2** (vaults, unbond queues, `pallet-hub-feed`) are on the trunk. Hub lab: Chopsticks `npm run hub:setup` bonds Orbit stashes on forked Asset Hub; `hub:payout` forces `Staking.Rewarded`; `npm run hub:loop` reports into Orbit and asserts oDOT/eDOT `totalAssets`. PR CI typechecks scripts and exercises synthetic `hubFeed.report*` in Zombienet. Unbond delay is still a short PoC (not Hub-aligned).
 
 ---
 
@@ -55,14 +55,29 @@ cargo build -p parachain-template-runtime --release
 
 ### Zombienet (local proof)
 
-Build collator + relay (macOS: compile `polkadot` from `polkadot-stable2512`; Linux CI downloads release binaries):
+Build collator + relay. Linux CI downloads relay release binaries; **macOS must compile relay locally** (Parity does not ship macOS `polkadot`).
 
 ```bash
-cargo +1.93.1 build -p parachain-template-node --release
-export PATH="$PWD/target/release:$PATH"
+# from Orbit repo root
+ORBIT_ROOT="$PWD"
 
-# network + oDOT/eDOT deposit (relay, para 1000, extrinsics)
-npx --yes @zombienet/cli --provider native test .github/tests/zombienet-integration.zndsl
+# 1) Orbit collator
+cargo +1.93.1 build -p parachain-template-node --release
+
+# 2) Relay (one-time, ~30–60 min) — SDK major must match Cargo.toml (2512 → polkadot-stable2512)
+git clone --depth 1 --branch polkadot-stable2512 \
+  https://github.com/paritytech/polkadot-sdk.git /tmp/polkadot-sdk-2512
+cd /tmp/polkadot-sdk-2512
+# Rust 1.93 rejects `#[deprecated]` on type params; remove the attribute on
+# `OnRuntimeUpgrade` in substrate/frame/executive/src/lib.rs if the build errors.
+cargo +1.93.1 build --release -p polkadot   # emits polkadot + *-worker binaries
+cp target/release/polkadot target/release/polkadot-*-worker \
+  "$ORBIT_ROOT/target/release/"
+
+# 3) Run integration test
+cd "$ORBIT_ROOT"
+export PATH="$PWD/target/release:$PATH"
+npx --yes @zombienet/cli --dir /tmp/zn-test --provider native test .github/tests/zombienet-integration.zndsl
 ```
 
 Polkadot.js on the collator WS port from Zombienet output (e.g. `ws://127.0.0.1:…`). `polkadot-omni-node --dev` is not the primary path Aura slot mismatch on mock relay.

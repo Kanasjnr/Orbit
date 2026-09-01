@@ -140,7 +140,7 @@ async function main() {
 	};
 	fs.writeFileSync(outFile, JSON.stringify(payload, null, 2) + "\n");
 	console.log(`wrote ${outFile}`);
-	console.log(`next: HUB_WS=${hubWs} npm run observe:dry`);
+	console.log(`next: HUB_WS=${hubWs} npm run hub:payout`);
 
 	await api.disconnect();
 }
