@@ -1,10 +1,10 @@
 # Chopsticks — fork Polkadot Asset Hub (staking lives here post Nov 2025).
 # Docs: https://github.com/AcalaNetwork/chopsticks
 #
-# Keep this process running in its own terminal. Then in another:
-#   cd scripts && HUB_WS=ws://127.0.0.1:8000 npm run hub:setup
-#
-# If the log says port 8001, use that port in HUB_WS instead.
+# Keep this process running in its own terminal. Copy the ws URL from the startup log
+# (port is dynamic if 8000 is busy), then in another terminal:
+#   export HUB_WS=ws://127.0.0.1:<port-from-log>
+#   cd scripts && npm run hub:setup
 
 endpoint: wss://polkadot-asset-hub-rpc.polkadot.io
 # Optional: pin a finalized block for reproducible runs
