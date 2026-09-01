@@ -12,6 +12,9 @@
     "observe": "tsx hub-feed-observe.ts",
     "observe:dry": "tsx hub-feed-observe.ts --dry-run",
     "hub:setup": "tsx hub-stake-setup.ts",
+    "hub:payout": "tsx hub-payout-lab.ts",
+    "hub:loop": "tsx hub-orbit-loop.ts",
+    "hub:loop:dry": "tsx hub-orbit-loop.ts --dry-run",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
