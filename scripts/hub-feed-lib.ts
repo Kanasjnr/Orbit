@@ -130,7 +130,7 @@ export async function scanBlockRewards(
 ): Promise<HubRewardEvent[]> {
 	const header = await api.rpc.chain.getHeader(blockHash);
 	const blockNumber = header.number.toNumber();
-	const events = await api.query.system.events.at(blockHash);
+	const events = (await api.query.system.events.at(blockHash)) as any;
 	const nomination = new Set(stashes.nominationStashes ?? []);
 	const selfStake = new Set(stashes.selfStakeStashes ?? []);
 	const activeIdx = Number(((await api.query.staking.activeEra()) as any).unwrapOrDefault().index);
@@ -138,7 +138,7 @@ export async function scanBlockRewards(
 	const payoutEra = activeIdx > 0 ? activeIdx - 1 : 0;
 	const out: HubRewardEvent[] = [];
 
-	for (const [idx, record] of events.entries()) {
+	for (const [idx, record] of events.entries() as Iterable<[number, any]>) {
 		const { event, phase } = record;
 		if (event.section !== "staking" || event.method !== "Rewarded") continue;
 
