@@ -5,16 +5,17 @@
   "engines": {
     "node": ">=22.4.0"
   },
-  "description": "Hub observe (PAPI) + Orbit hub-feed reporters",
+  "description": "Asset Hub lab + hubFeed reporters",
   "scripts": {
     "postinstall": "papi",
     "papi:add": "papi add pah -n polkadot_asset_hub",
-    "observe": "tsx hub-feed-observe.ts",
-    "observe:dry": "tsx hub-feed-observe.ts --dry-run",
-    "hub:setup": "tsx hub-stake-setup.ts",
-    "hub:payout": "tsx hub-payout-lab.ts",
-    "hub:loop": "tsx hub-orbit-loop.ts",
-    "hub:loop:dry": "tsx hub-orbit-loop.ts --dry-run",
+    "observe": "tsx hub-observe.ts",
+    "observe:dry": "tsx hub-observe.ts --dry-run",
+    "hub:setup": "tsx hub-setup.ts",
+    "hub:lab": "npm run hub:setup && npm run hub:payout",
+    "hub:payout": "tsx hub-payout.ts",
+    "hub:loop": "tsx hub-loop.ts",
+    "hub:loop:dry": "tsx hub-loop.ts --dry-run",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
@@ -26,6 +27,7 @@
     "ws": "^8.18.1"
   },
   "devDependencies": {
+    "@acala-network/chopsticks": "^1.5.1",
     "@types/node": "^22.13.10",
     "@types/ws": "^8.18.1",
     "tsx": "^4.19.3",

@@ -1,5 +1,6 @@
 {
-  "_comment": "After `npm run hub:setup` against Chopsticks, hub-stashes.json is rewritten with //OrbitNom and //OrbitSelf. Until then these public addresses are observe-only plumbing.",
   "nominationStashes": [],
-  "selfStakeStashes": []
+  "selfStakeStashes": [],
+  "operatorAddress": "",
+  "operatorUri": "//OrbitOp"
 }
