@@ -51,7 +51,7 @@ async function signExtrinsic(
   return new Promise<{ hash: string; blockHash: string; events: any[] }>(
     (resolve, reject) => {
       call
-        .signAndSend(pair, ({ status, dispatchError, txHash, events }) => {
+        .signAndSend(pair, ({ status, dispatchError, txHash, events }: any) => {
           if (dispatchError) {
             if (dispatchError.isModule) {
               const m = api.registry.findMetaError(dispatchError.asModule);
