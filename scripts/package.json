@@ -16,6 +16,10 @@
     "hub:payout": "tsx hub-payout.ts",
     "hub:loop": "tsx hub-loop.ts",
     "hub:loop:dry": "tsx hub-loop.ts --dry-run",
+    "paseo:balance": "tsx paseo-relay.ts balance",
+    "paseo:reserve": "tsx paseo-relay.ts reserve",
+    "paseo:register": "tsx paseo-relay.ts register",
+    "paseo:coretime": "tsx paseo-relay.ts coretime",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
@@ -23,6 +27,7 @@
     "@polkadot-api/descriptors": "file:.papi/descriptors",
     "@polkadot/api": "^16.4.6",
     "@polkadot/keyring": "^14.0.3",
+    "@polkadot/util-crypto": "^14.0.3",
     "polkadot-api": "^2.2.2",
     "ws": "^8.18.1"
   },

@@ -7,4 +7,7 @@ chain_spec.json
 node_modules/
 scripts/node_modules/
 scripts/hub-stashes.json
+paseo/generated/
+paseo/data-*/
+paseo/orbit.env
 bin/
