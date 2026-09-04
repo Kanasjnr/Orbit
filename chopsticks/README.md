@@ -61,6 +61,10 @@ Shared helpers: `hub.ts`.
 | `Staking.ValidatorIncentivePaid` | `hubFeed.reportSelfStakeReward` |
 | `Staking.Slashed` (self-stake only) | `hubFeed.reportSlash` |
 
+## Paseo
+
+Public testnet deploy: see [`paseo/README.md`](../paseo/README.md). Reserve a para id, build spec, register, run collator, then point `hub:observe` at Paseo Asset Hub RPC and your Orbit collator.
+
 ## CI vs local
 
 | What | Where |
