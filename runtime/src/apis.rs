@@ -40,7 +40,7 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	traits::Block as BlockT,
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult, Permill,
 };
 use sp_version::RuntimeVersion;
 
@@ -50,6 +50,14 @@ use super::{
 	Runtime, RuntimeCall, RuntimeGenesisConfig, SessionKeys, System, TransactionPayment,
 	SLOT_DURATION, VERSION,
 };
+
+sp_api::decl_runtime_apis! {
+	/// Live vault-mix metrics, queryable without a custom node RPC.
+	pub trait OrbitMixApi {
+		/// `(eDOT backing, oDOT backing, self-stake ratio, openable slots)`.
+		fn mix_metrics() -> (Balance, Balance, Permill, u32);
+	}
+}
 
 // we move some impls outside so we can easily use them with `docify`.
 impl Runtime {
@@ -323,6 +331,16 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
 		fn parachain_id() -> ParaId {
 			parachain_info::Pallet::<Runtime>::parachain_id()
+		}
+	}
+
+	impl self::OrbitMixApi<Block> for Runtime {
+		fn mix_metrics() -> (Balance, Balance, Permill, u32) {
+			let (v_e, _) = pallet_edot::Pallet::<Runtime>::rate_components();
+			let (v_o, _) = pallet_odot::Pallet::<Runtime>::rate_components();
+			let phi = pallet_edot::Pallet::<Runtime>::phi();
+			let k = pallet_edot::Pallet::<Runtime>::k_openable();
+			(v_e, v_o, phi, u32::try_from(k).unwrap_or(u32::MAX))
 		}
 	}
 }
