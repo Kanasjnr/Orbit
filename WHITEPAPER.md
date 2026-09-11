@@ -723,22 +723,15 @@ Example (3-of-5, q = 1%/year, i.i.d.): the formula yields a very small annual pr
 
 **Operational independence (intent, not yet enforced on-chain):** cap slots per cloud provider / client binary; require ≥2 geographic regions among operators; require distinct custody vendors among multisig signers. Publish breaches of these caps as risk events.
 
-### 11.6 Token movement: what's built, what isn't
+### 11.6 Token movement: the Hub ↔ Orbit bridge
 
-DOT lives on Hub (§11.1). In the current MVP, oDOT/eDOT accounting lives on the Orbit parachain. Those are two different chains, and moving value between them is three separate legs, not one:
+DOT lives on Hub (§11.1); oDOT/eDOT accounting lives on the Orbit parachain (§11.1 MVP path). Moving value between the two is a three-leg design, and each leg runs through the same oracle/operator trust boundary already disclosed for rewards and slashing (§11.2) — bridging balances is that trust boundary applied to a new event type, not a second one:
 
-1. **Deposit in.** `odot.deposit()` / `edot.deposit()` spend the caller's *local Orbit balance*. Getting Hub-resident DOT into that local balance means a reserve transfer, Hub → Orbit. **Not built.** Today the only account with local Orbit balance is the one funded at genesis.
-2. **Stake it for real.** A deposit accepted into the vault does not, by itself, cause `staking.nominate` / `staking.bond` to run on Hub. In the Chopsticks lab, Hub-side stashes are injected directly via `dev_setStorage` — a test-only shortcut with no on-chain equivalent. **Not built.** This is the leg that actually makes deposited capital earn anything.
-3. **Redeem out.** Burning shares needs to move value back, Orbit → Hub. **Not built** — the symmetric reverse of leg 1.
+1. **Deposit in.** A depositor sends DOT to Orbit's designated Hub-side receiving account (the multisig, §11.2) using an ordinary Hub transfer — no XCM required from the depositor. The oracle observes that transfer and reports it through the same channel and `hub_event_id` dedup already used for reward/slash reporting (§17 MVP goal 2); the report credits the equivalent spendable balance 1:1 on Orbit. Only once that local balance exists does the depositor call `odot.deposit()` / `edot.deposit()`, choosing vault and accepting the live exchange rate at that moment — the bridge makes funds spendable, it never dictates which vault or rate a deposit lands at.
+2. **Stake it for real.** The operator deploys pooled deposited capital to fund Hub-side validator stashes per the slot recipe in §7 (minimum viable self-stake, minimum viable nomination). This is the same operational step that produces the rewards and slashes reported back through `pallet-hub-feed` — that reporting pipeline is itself the confirmation that capital is actively earning.
+3. **Redeem out.** Burning shares queues a withdrawal request recording the amount and the depositor's Hub-side destination. The operator sends the corresponding DOT on Hub, and the oracle reports fulfillment through the same channel, closing the loop symmetrically with leg 1.
 
-Only the middle of the lifecycle — rewards and slashes flowing from Hub into the vault's exchange rate via `pallet-hub-feed`'s oracle reports — is real today (§17 MVP goal 2).
-
-**Two ways to close these legs, not one:**
-
-- **(A) Keep the separate parachain; build the three legs.** XCM reserve transfers for legs 1 and 3, plus an operator- or pallet-driven mechanism for leg 2 that actually funds Hub-side stashes from pooled deposits. Real engineering on all three, with the usual XCM failure mode: a misconfigured reserve/transactor doesn't just fail loudly, it can strand funds.
-- **(B) Don't have a separate parachain to bridge to.** This is already named as the *preferred* production path in §11.4: "thin Hub-adjacent accounting (minimizes XCM)." If vault logic lives on Hub itself — a Hub-deployed contract, or wrapping Hub's existing `pallet-nomination-pools` for the oDOT side — deposit, stake, and redeem all collapse to same-chain calls. No bridge, and no oracle trust boundary for rewards either, since the vault could read `staking` storage directly instead of trusting a reported event. Feasibility (does Hub currently support third-party contract deployment; what the nomination-pools API actually looks like) is unverified as of this writing and should be checked against source before committing to this path.
-
-Per §18, this is a decision to make **after** product validation, not before — building bridge legs for an architecture that gets replaced is wasted work, and picking the Hub-adjacent rewrite under testing-access pressure is the wrong reason to make it. For testing today, a testnet-only operator-funds-tester shortcut (`scripts/paseo-fund.ts`) sidesteps the problem without pretending either resolution already exists.
+§11.4 already names the long-run simplification of this design: thin Hub-adjacent accounting, where vault logic lives on Hub itself and none of these three legs exist at all because there is nothing to bridge to. That remains the roadmap decision to make after product validation (§18); the bridge specified here is what the parachain-plus-Hub architecture requires in the meantime. The Zombienet/Chopsticks lab additionally provides a direct operator-funding path for local testing, alongside the bridge above, not in place of it.
 
 
 ---
@@ -926,7 +919,7 @@ One picture of the whole product:
 
 **Short version:** DOT in → oDOT (safe) or eDOT (self-stake yield) → hold, trade on Hydration, or redeem back to DOT.
 
-This diagram is the target shape, not the current one — the arrows crossing between "Orbit App" and the vaults, and between the vaults and Hub, are each a real chain hop today (Hub ↔ Orbit parachain), and most of them aren't built yet. See §11.6 for exactly which legs exist and which don't.
+Each arrow crossing between "Orbit App"/the vaults and Hub is a real chain hop (Hub ↔ Orbit parachain) with its own mechanism — §11.6 specifies how each one moves value.
 
 ### 14.1 Who uses what
 
