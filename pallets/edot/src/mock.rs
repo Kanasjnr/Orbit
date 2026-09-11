@@ -1,3 +1,4 @@
+use core::cell::Cell;
 use frame::{
 	deps::{
 		frame_support::{
@@ -6,7 +7,7 @@ use frame::{
 			PalletId,
 		},
 		frame_system::GenesisConfig as SystemGenesisConfig,
-		sp_runtime::BuildStorage,
+		sp_runtime::{BuildStorage, Permill},
 	},
 	prelude::*,
 	runtime::prelude::*,
@@ -15,6 +16,24 @@ use frame::{
 use polkadot_sdk::pallet_balances;
 
 type Balance = u128;
+
+thread_local! {
+	static NOMINATION_BACKING: Cell<Balance> = const { Cell::new(0) };
+}
+
+/// High enough that existing tests never trip the mix ceiling unless lowered.
+const DEFAULT_NOMINATION_BACKING: Balance = 1_000_000_000;
+
+pub fn set_nomination_backing(v: Balance) {
+	NOMINATION_BACKING.with(|c| c.set(v));
+}
+
+pub struct MockNominationBacking;
+impl crate::traits::NominationBacking<Balance> for MockNominationBacking {
+	fn total_nomination_assets() -> Balance {
+		NOMINATION_BACKING.with(|c| c.get())
+	}
+}
 
 #[frame_construct_runtime]
 mod test_runtime {
@@ -63,6 +82,9 @@ parameter_types! {
 	pub const MinDeposit: Balance = 10;
 	pub const DeadShares: Balance = 1_000;
 	pub const UnbondingPeriod: u64 = 3;
+	pub const SelfStakeFloor: Balance = 100;
+	pub const ElectionThreshold: Balance = 1_000;
+	pub MaxPhi: Permill = Permill::from_rational(SelfStakeFloor::get(), ElectionThreshold::get());
 }
 
 impl crate::Config for Test {
@@ -72,6 +94,10 @@ impl crate::Config for Test {
 	type MinimumDeposit = MinDeposit;
 	type DeadShares = DeadShares;
 	type UnbondingPeriod = UnbondingPeriod;
+	type NominationBacking = MockNominationBacking;
+	type SelfStakeFloor = SelfStakeFloor;
+	type ElectionThreshold = ElectionThreshold;
+	type MaxPhi = MaxPhi;
 	type WeightInfo = ();
 }
 
@@ -79,6 +105,7 @@ pub const ALICE: u64 = 1;
 pub const BOB: u64 = 2;
 
 pub fn new_test_ext() -> TestState {
+	set_nomination_backing(DEFAULT_NOMINATION_BACKING);
 	let mut t = SystemGenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(ALICE, 1_000_000), (BOB, 1_000_000)],
