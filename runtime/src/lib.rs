@@ -312,6 +312,8 @@ mod runtime {
 	pub type Edot = pallet_edot;
 	#[runtime::pallet_index(53)]
 	pub type HubFeed = pallet_hub_feed;
+	#[runtime::pallet_index(54)]
+	pub type HubBridge = pallet_hub_bridge;
 }
 
 #[docify::export(register_validate_block)]

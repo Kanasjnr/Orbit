@@ -18,8 +18,13 @@ function loadOrbitEnv() {
     if (i < 1) continue;
     const key = t.slice(0, i).trim();
     let val = t.slice(i + 1).trim();
-    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-      val = val.slice(1, -1);
+    if (val.startsWith('"') || val.startsWith("'")) {
+      const quote = val[0];
+      const end = val.indexOf(quote, 1);
+      val = end === -1 ? val.slice(1) : val.slice(1, end);
+    } else {
+      const hashIdx = val.indexOf(" #");
+      if (hashIdx !== -1) val = val.slice(0, hashIdx).trim();
     }
     if (process.env[key] === undefined) process.env[key] = val;
   }

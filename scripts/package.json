@@ -21,6 +21,7 @@
     "paseo:register": "tsx paseo-relay.ts register",
     "paseo:coretime": "tsx paseo-relay.ts coretime",
     "paseo:upgrade": "tsx paseo-upgrade.ts",
+    "paseo:fund": "tsx paseo-fund.ts",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {

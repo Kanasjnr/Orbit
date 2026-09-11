@@ -9261,6 +9261,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-hub-bridge"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "polkadot-sdk",
+ "polkadot-sdk-frame",
+ "scale-info",
+]
+
+[[package]]
 name = "pallet-hub-feed"
 version = "0.1.0"
 dependencies = [
@@ -10625,6 +10635,7 @@ dependencies = [
  "hex-literal",
  "log",
  "pallet-edot",
+ "pallet-hub-bridge",
  "pallet-hub-feed",
  "pallet-odot",
  "parity-scale-codec",

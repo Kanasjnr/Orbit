@@ -442,3 +442,10 @@ impl pallet_hub_feed::Config for Runtime {
 	type SelfStakeVault = EdotHubSink;
 	type WeightInfo = pallet_hub_feed::weights::SubstrateWeight<Runtime>;
 }
+
+impl pallet_hub_bridge::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type FeedOrigin = EnsureSignedBy<HubFeedOracle, AccountId>;
+	type WeightInfo = pallet_hub_bridge::weights::SubstrateWeight<Runtime>;
+}
