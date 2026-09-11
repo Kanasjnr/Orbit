@@ -2,7 +2,7 @@ use crate::{
 	mock::*, Error, Event, NextRedeemId, RedeemRequests, Shares, TotalAssets, TotalShares,
 	TotalSlashed,
 };
-use frame::testing_prelude::*;
+use frame::{deps::sp_runtime::Permill, testing_prelude::*};
 use polkadot_sdk::pallet_balances::Pallet as BalancesPallet;
 
 fn vault_free() -> u128 {
@@ -35,9 +35,7 @@ fn deposit_mints_one_to_one_at_genesis_rate() {
 		assert_eq!(TotalAssets::<Test>::get(), DeadShares::get() + 100);
 		assert_eq!(TotalShares::<Test>::get(), DeadShares::get() + 100);
 		assert_eq!(vault_free(), DeadShares::get() + 100);
-		System::assert_last_event(
-			Event::Deposited { who: ALICE, assets: 100, shares: 100 }.into(),
-		);
+		System::assert_last_event(Event::Deposited { who: ALICE, assets: 100, shares: 100 }.into());
 	});
 }
 
@@ -77,10 +75,7 @@ fn slash_lowers_rate_without_burning_shares() {
 fn slash_rejects_amount_above_slashable() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Edot::deposit(RuntimeOrigin::signed(ALICE), 100));
-		assert_noop!(
-			Edot::do_apply_slash(10_000),
-			Error::<Test>::SlashExceedsSlashable
-		);
+		assert_noop!(Edot::do_apply_slash(10_000), Error::<Test>::SlashExceedsSlashable);
 		assert_ok!(Edot::do_apply_slash(100));
 		assert_eq!(TotalAssets::<Test>::get(), DeadShares::get());
 		assert_eq!(TotalSlashed::<Test>::get(), 100);
@@ -264,5 +259,66 @@ fn slash_during_unbond_impairs_queued_claim() {
 		assert_ok!(Edot::claim_redeem(RuntimeOrigin::signed(ALICE), 0));
 		assert_eq!(Balances::free_balance(ALICE) - before, 96);
 		assert!(RedeemRequests::<Test>::get(ALICE, 0).is_none());
+	});
+}
+
+#[test]
+fn deposit_blocked_when_no_nomination_backing() {
+	new_test_ext().execute_with(|| {
+		set_nomination_backing(0);
+		assert_noop!(
+			Edot::deposit(RuntimeOrigin::signed(ALICE), 100),
+			Error::<Test>::MixCeilingExceeded
+		);
+	});
+}
+
+#[test]
+fn deposit_allowed_at_exact_mix_ceiling() {
+	new_test_ext().execute_with(|| {
+		// sigma = DeadShares(1_000) + 1_000 deposit = 2_000; nu = 18_000
+		// phi = 2_000 / 20_000 = 10% = MaxPhi exactly.
+		set_nomination_backing(18_000);
+		assert_ok!(Edot::deposit(RuntimeOrigin::signed(ALICE), 1_000));
+	});
+}
+
+#[test]
+fn deposit_blocked_above_mix_ceiling() {
+	new_test_ext().execute_with(|| {
+		// sigma = 2_000, nu = 10_000 -> phi ≈ 16.7% > 10% ceiling.
+		set_nomination_backing(10_000);
+		assert_noop!(
+			Edot::deposit(RuntimeOrigin::signed(ALICE), 1_000),
+			Error::<Test>::MixCeilingExceeded
+		);
+	});
+}
+
+#[test]
+fn phi_reports_live_ratio() {
+	new_test_ext().execute_with(|| {
+		// sigma = DeadShares only (1_000), nu = 9_000 -> phi = 10%.
+		set_nomination_backing(9_000);
+		assert_eq!(Edot::phi(), Permill::from_percent(10));
+	});
+}
+
+#[test]
+fn k_openable_is_bound_by_scarcer_pool() {
+	new_test_ext().execute_with(|| {
+		// sigma_star = 100, sigma = 1_000 (dead only) -> k_e = 10.
+		// nu_star = ElectionThreshold(1_000) - sigma_star(100) = 900.
+		// nu = 2_700 -> k_o = 3, the binding (scarcer) side.
+		set_nomination_backing(2_700);
+		assert_eq!(Edot::k_openable(), 3);
+	});
+}
+
+#[test]
+fn k_openable_zero_with_no_nomination_backing() {
+	new_test_ext().execute_with(|| {
+		set_nomination_backing(0);
+		assert_eq!(Edot::k_openable(), 0);
 	});
 }

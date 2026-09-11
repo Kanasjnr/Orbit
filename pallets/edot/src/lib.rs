@@ -5,7 +5,7 @@
 //! - Deposit DOT → mint eDOT shares at `rate = V / S`
 //! - Protocol redeem queues for `UnbondingPeriod` then pays at claim-time rate (§12, §14.5)
 //! - Accrue rewards / apply slash only via `pallet-hub-feed` (no admin mint/slash path)
-//! - Queued redeem for `UnbondingPeriod` then pays at claim-time rate (§12, §14.5)
+//! - Queued redeem for `UnbondingPeriod` then pays at claim-time rate
 //!
 //! Queued shares stay in `S` until claim, so a slash during unbond still socializes.
 //!
@@ -13,6 +13,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use pallet::*;
+pub use traits::NominationBacking;
 
 #[cfg(test)]
 mod mock;
@@ -20,13 +21,17 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+pub mod traits;
 pub mod weights;
 
 #[frame::pallet]
 pub mod pallet {
-	use crate::weights::WeightInfo;
+	use crate::{traits::NominationBacking, weights::WeightInfo};
 	use frame::{
-		deps::frame_support::{DefaultNoBound, PalletId},
+		deps::{
+			frame_support::{DefaultNoBound, PalletId},
+			sp_runtime::Permill,
+		},
 		prelude::*,
 		traits::{
 			fungible::{Inspect, Mutate},
@@ -62,6 +67,22 @@ pub mod pallet {
 		/// Blocks a protocol redeem must wait before `claim_redeem` (MVP stand-in for Hub unbond).
 		#[pallet::constant]
 		type UnbondingPeriod: Get<BlockNumberFor<Self>>;
+
+		/// Live oDOT vault backing, for the mix circuit breaker.
+		type NominationBacking: NominationBacking<BalanceOf<Self>>;
+
+		/// Per-slot self-stake floor.
+		#[pallet::constant]
+		type SelfStakeFloor: Get<BalanceOf<Self>>;
+
+		/// Per-slot election-clearing threshold. Illustrative until derived from
+		/// live Hub staking parameters.
+		#[pallet::constant]
+		type ElectionThreshold: Get<BalanceOf<Self>>;
+
+		/// Ceiling on live self-stake ratio; deposits that would cross it are refused.
+		#[pallet::constant]
+		type MaxPhi: Get<Permill>;
 
 		type WeightInfo: WeightInfo;
 	}
@@ -106,7 +127,8 @@ pub mod pallet {
 
 	/// Next redeem request id per account.
 	#[pallet::storage]
-	pub type NextRedeemId<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
+	pub type NextRedeemId<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -152,6 +174,8 @@ pub mod pallet {
 		UnknownRedeemRequest,
 		/// Unbonding period has not elapsed.
 		NotUnlocked,
+		/// Deposit would push the self-stake ratio above `MaxPhi`.
+		MixCeilingExceeded,
 	}
 
 	#[pallet::genesis_config]
@@ -195,6 +219,10 @@ pub mod pallet {
 			let total_shares = TotalShares::<T>::get();
 			ensure!(!total_assets.is_zero() && !total_shares.is_zero(), Error::<T>::EmptyVault);
 
+			let prospective_sigma =
+				total_assets.checked_add(&assets).ok_or(Error::<T>::Arithmetic)?;
+			Self::ensure_within_mix_ceiling(prospective_sigma)?;
+
 			let shares = assets
 				.checked_mul(&total_shares)
 				.ok_or(Error::<T>::Arithmetic)?
@@ -204,12 +232,8 @@ pub mod pallet {
 
 			T::Currency::transfer(&who, &vault, assets, Preservation::Expendable)?;
 
-			TotalAssets::<T>::put(
-				total_assets.checked_add(&assets).ok_or(Error::<T>::Arithmetic)?,
-			);
-			TotalShares::<T>::put(
-				total_shares.checked_add(&shares).ok_or(Error::<T>::Arithmetic)?,
-			);
+			TotalAssets::<T>::put(total_assets.checked_add(&assets).ok_or(Error::<T>::Arithmetic)?);
+			TotalShares::<T>::put(total_shares.checked_add(&shares).ok_or(Error::<T>::Arithmetic)?);
 			Shares::<T>::try_mutate(&who, |b| -> Result<(), Error<T>> {
 				*b = b.checked_add(&shares).ok_or(Error::<T>::Arithmetic)?;
 				Ok(())
@@ -233,13 +257,9 @@ pub mod pallet {
 			Shares::<T>::insert(&who, held.checked_sub(&shares).ok_or(Error::<T>::Arithmetic)?);
 
 			let id = NextRedeemId::<T>::get(&who);
-			let unlock_at = frame_system::Pallet::<T>::block_number()
-				.saturating_add(T::UnbondingPeriod::get());
-			RedeemRequests::<T>::insert(
-				&who,
-				id,
-				RedeemRequest { shares, unlock_at },
-			);
+			let unlock_at =
+				frame_system::Pallet::<T>::block_number().saturating_add(T::UnbondingPeriod::get());
+			RedeemRequests::<T>::insert(&who, id, RedeemRequest { shares, unlock_at });
 			NextRedeemId::<T>::insert(&who, id.checked_add(1).ok_or(Error::<T>::Arithmetic)?);
 
 			Self::deposit_event(Event::RedeemRequested { who, id, shares, unlock_at });
@@ -251,7 +271,8 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::claim_redeem())]
 		pub fn claim_redeem(origin: OriginFor<T>, id: u64) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let req = RedeemRequests::<T>::take(&who, id).ok_or(Error::<T>::UnknownRedeemRequest)?;
+			let req =
+				RedeemRequests::<T>::take(&who, id).ok_or(Error::<T>::UnknownRedeemRequest)?;
 			ensure!(
 				frame_system::Pallet::<T>::block_number() >= req.unlock_at,
 				Error::<T>::NotUnlocked
@@ -272,22 +293,14 @@ pub mod pallet {
 			let vault = Self::account_id();
 			T::Currency::transfer(&vault, &who, assets, Preservation::Expendable)?;
 
-			TotalAssets::<T>::put(
-				total_assets.checked_sub(&assets).ok_or(Error::<T>::Arithmetic)?,
-			);
+			TotalAssets::<T>::put(total_assets.checked_sub(&assets).ok_or(Error::<T>::Arithmetic)?);
 			TotalShares::<T>::put(
 				total_shares.checked_sub(&req.shares).ok_or(Error::<T>::Arithmetic)?,
 			);
 
-			Self::deposit_event(Event::RedeemClaimed {
-				who,
-				id,
-				shares: req.shares,
-				assets,
-			});
+			Self::deposit_event(Event::RedeemClaimed { who, id, shares: req.shares, assets });
 			Ok(())
 		}
-
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -373,6 +386,51 @@ pub mod pallet {
 		/// Preview redeemable assets for `who`'s full balance.
 		pub fn assets_of(who: &T::AccountId) -> Result<BalanceOf<T>, Error<T>> {
 			Self::convert_to_assets(Shares::<T>::get(who))
+		}
+
+		/// Live self-stake ratio: eDOT backing over combined eDOT + oDOT backing.
+		pub fn phi() -> Permill {
+			let sigma = TotalAssets::<T>::get();
+			let nu = T::NominationBacking::total_nomination_assets();
+			let denom = sigma.saturating_add(nu);
+			if denom.is_zero() {
+				return Permill::zero();
+			}
+			Permill::from_rational(sigma, denom)
+		}
+
+		/// How many more slots current vault backing can fund, bounded by whichever
+		/// pool (self-stake or nomination) is scarcer.
+		pub fn k_openable() -> BalanceOf<T> {
+			let sigma_star = T::SelfStakeFloor::get();
+			if sigma_star.is_zero() {
+				return Zero::zero();
+			}
+			let nu_star = T::ElectionThreshold::get().saturating_sub(sigma_star);
+			if nu_star.is_zero() {
+				return Zero::zero();
+			}
+
+			let sigma = TotalAssets::<T>::get();
+			let nu = T::NominationBacking::total_nomination_assets();
+			let k_e = sigma.checked_div(&sigma_star).unwrap_or(Zero::zero());
+			let k_o = nu.checked_div(&nu_star).unwrap_or(Zero::zero());
+			if k_e < k_o {
+				k_e
+			} else {
+				k_o
+			}
+		}
+
+		fn ensure_within_mix_ceiling(prospective_sigma: BalanceOf<T>) -> DispatchResult {
+			let nu = T::NominationBacking::total_nomination_assets();
+			let denom = prospective_sigma.saturating_add(nu);
+			if denom.is_zero() {
+				return Ok(());
+			}
+			let phi = Permill::from_rational(prospective_sigma, denom);
+			ensure!(phi <= T::MaxPhi::get(), Error::<T>::MixCeilingExceeded);
+			Ok(())
 		}
 	}
 }

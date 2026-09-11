@@ -53,7 +53,7 @@ use polkadot_runtime_common::{
 	xcm_sender::ExponentialPrice, BlockHashCount, SlowAdjustingFeeUpdate,
 };
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_runtime::Perbill;
+use sp_runtime::{Perbill, Permill};
 use sp_version::RuntimeVersion;
 use xcm::latest::prelude::{AssetId, BodyId};
 
@@ -373,6 +373,18 @@ parameter_types! {
 	/// PoC unbond delay (10 blocks). Not Hub-aligned: production should track ~24–48h /
 	/// ~28 eras on Hub; keep this short only for local Zombienet.
 	pub const EdotUnbondingPeriod: BlockNumber = 10;
+	/// Illustrative self-stake floor; re-derive from live Hub staking params before mainnet.
+	pub const EdotSelfStakeFloor: Balance = 10_000 * UNIT;
+	/// Illustrative per-slot election-clearing threshold.
+	pub const EdotElectionThreshold: Balance = 1_440_000 * UNIT;
+	pub EdotMaxPhi: Permill = Permill::from_rational(EdotSelfStakeFloor::get(), EdotElectionThreshold::get());
+}
+
+pub struct OdotNominationBacking;
+impl pallet_edot::traits::NominationBacking<Balance> for OdotNominationBacking {
+	fn total_nomination_assets() -> Balance {
+		pallet_odot::Pallet::<Runtime>::rate_components().0
+	}
 }
 
 impl pallet_edot::Config for Runtime {
@@ -382,6 +394,10 @@ impl pallet_edot::Config for Runtime {
 	type MinimumDeposit = EdotMinimumDeposit;
 	type DeadShares = EdotDeadShares;
 	type UnbondingPeriod = EdotUnbondingPeriod;
+	type NominationBacking = OdotNominationBacking;
+	type SelfStakeFloor = EdotSelfStakeFloor;
+	type ElectionThreshold = EdotElectionThreshold;
+	type MaxPhi = EdotMaxPhi;
 	type WeightInfo = pallet_edot::weights::SubstrateWeight<Runtime>;
 }
 
@@ -391,9 +407,9 @@ pub struct HubFeedOracle;
 impl SortedMembers<AccountId> for HubFeedOracle {
 	fn sorted_members() -> alloc::vec::Vec<AccountId> {
 		alloc::vec![AccountId::from([
-			0xd4, 0x35, 0x93, 0xc7, 0x15, 0xfd, 0xd3, 0x1c, 0x61, 0x14, 0x1a, 0xbd, 0x04, 0xa9, 0x9f,
-			0xd6, 0x82, 0x2c, 0x85, 0x58, 0x85, 0x4c, 0xcd, 0xe3, 0x9a, 0x56, 0x84, 0xe7, 0xa5, 0x6d,
-			0xa2, 0x7d,
+			0xd4, 0x35, 0x93, 0xc7, 0x15, 0xfd, 0xd3, 0x1c, 0x61, 0x14, 0x1a, 0xbd, 0x04, 0xa9,
+			0x9f, 0xd6, 0x82, 0x2c, 0x85, 0x58, 0x85, 0x4c, 0xcd, 0xe3, 0x9a, 0x56, 0x84, 0xe7,
+			0xa5, 0x6d, 0xa2, 0x7d,
 		])]
 	}
 }
@@ -414,9 +430,7 @@ impl pallet_hub_feed::SelfStakeVaultSink for EdotHubSink {
 	fn credit_self_stake_rewards(amount: Self::Balance) -> frame_support::dispatch::DispatchResult {
 		pallet_edot::Pallet::<Runtime>::do_credit_rewards(amount)
 	}
-	fn apply_hub_slash(
-		amount: Self::Balance,
-	) -> Result<Self::Balance, sp_runtime::DispatchError> {
+	fn apply_hub_slash(amount: Self::Balance) -> Result<Self::Balance, sp_runtime::DispatchError> {
 		pallet_edot::Pallet::<Runtime>::do_apply_slash(amount)
 	}
 }

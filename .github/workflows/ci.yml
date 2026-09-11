@@ -21,8 +21,12 @@ jobs:
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/ubuntu-dependencies
 
+      - name: Format
+        run: ./check.sh fmt
+        timeout-minutes: 5
+
       - name: Clippy
-        run: SKIP_PALLET_REVIVE_FIXTURES=1 SKIP_WASM_BUILD=1 cargo clippy --all-targets --locked --workspace -- -D warnings
+        run: ./check.sh clippy
         timeout-minutes: 30
 
       - name: Unit tests
