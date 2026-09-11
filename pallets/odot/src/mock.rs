@@ -86,9 +86,7 @@ pub fn new_test_ext() -> TestState {
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
-	crate::GenesisConfig::<Test>::default()
-		.assimilate_storage(&mut t)
-		.unwrap();
+	crate::GenesisConfig::<Test>::default().assimilate_storage(&mut t).unwrap();
 	let mut ext: TestState = t.into();
 	ext.execute_with(|| System::set_block_number(1));
 	ext

@@ -35,9 +35,7 @@ fn deposit_mints_one_to_one_at_genesis_rate() {
 		assert_eq!(TotalAssets::<Test>::get(), DeadShares::get() + 100);
 		assert_eq!(TotalShares::<Test>::get(), DeadShares::get() + 100);
 		assert_eq!(vault_free(), DeadShares::get() + 100);
-		System::assert_last_event(
-			Event::Deposited { who: ALICE, assets: 100, shares: 100 }.into(),
-		);
+		System::assert_last_event(Event::Deposited { who: ALICE, assets: 100, shares: 100 }.into());
 	});
 }
 
@@ -77,10 +75,7 @@ fn slash_lowers_rate_without_burning_shares() {
 fn slash_rejects_amount_above_slashable() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Edot::deposit(RuntimeOrigin::signed(ALICE), 100));
-		assert_noop!(
-			Edot::do_apply_slash(10_000),
-			Error::<Test>::SlashExceedsSlashable
-		);
+		assert_noop!(Edot::do_apply_slash(10_000), Error::<Test>::SlashExceedsSlashable);
 		assert_ok!(Edot::do_apply_slash(100));
 		assert_eq!(TotalAssets::<Test>::get(), DeadShares::get());
 		assert_eq!(TotalSlashed::<Test>::get(), 100);

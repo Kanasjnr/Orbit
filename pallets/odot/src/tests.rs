@@ -24,9 +24,7 @@ fn deposit_mints_one_to_one_at_genesis_rate() {
 		assert_eq!(TotalAssets::<Test>::get(), DeadShares::get() + 100);
 		assert_eq!(TotalShares::<Test>::get(), DeadShares::get() + 100);
 		assert_eq!(vault_free(), DeadShares::get() + 100);
-		System::assert_last_event(
-			Event::Deposited { who: ALICE, assets: 100, shares: 100 }.into(),
-		);
+		System::assert_last_event(Event::Deposited { who: ALICE, assets: 100, shares: 100 }.into());
 	});
 }
 
