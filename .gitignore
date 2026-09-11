@@ -11,3 +11,4 @@ paseo/generated/
 paseo/data-*/
 paseo/orbit.env
 bin/
+frontend/.env
