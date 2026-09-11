@@ -98,6 +98,17 @@ bash paseo/insert-session-key.sh
 
 Point Polkadot.js at `ws://127.0.0.1:$COLLATOR_RPC`.
 
+## Runtime upgrades
+
+Registering para 2002 only happens once — after that, new pallet/runtime code needs a live upgrade, not a redeploy. With the collator running:
+
+```bash
+cargo build -p parachain-template-runtime --release
+cd scripts && npm run paseo:upgrade
+```
+
+This authorizes (via sudo, the `PASEO_URI` key) and enacts an upgrade to the freshly built runtime, then polls `state.getRuntimeVersion` until `specVersion` bumps. The old runtime keeps serving until the relay validates the new code, usually within a few blocks.
+
 ## Hub observer on Paseo
 
 Staking rewards still come from Asset Hub. After Orbit collator is live and you have real bonded stashes on Paseo Asset Hub:
