@@ -106,7 +106,8 @@ pub mod pallet {
 
 	/// Next redeem request id per account.
 	#[pallet::storage]
-	pub type NextRedeemId<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
+	pub type NextRedeemId<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -204,12 +205,8 @@ pub mod pallet {
 
 			T::Currency::transfer(&who, &vault, assets, Preservation::Expendable)?;
 
-			TotalAssets::<T>::put(
-				total_assets.checked_add(&assets).ok_or(Error::<T>::Arithmetic)?,
-			);
-			TotalShares::<T>::put(
-				total_shares.checked_add(&shares).ok_or(Error::<T>::Arithmetic)?,
-			);
+			TotalAssets::<T>::put(total_assets.checked_add(&assets).ok_or(Error::<T>::Arithmetic)?);
+			TotalShares::<T>::put(total_shares.checked_add(&shares).ok_or(Error::<T>::Arithmetic)?);
 			Shares::<T>::try_mutate(&who, |b| -> Result<(), Error<T>> {
 				*b = b.checked_add(&shares).ok_or(Error::<T>::Arithmetic)?;
 				Ok(())
@@ -233,13 +230,9 @@ pub mod pallet {
 			Shares::<T>::insert(&who, held.checked_sub(&shares).ok_or(Error::<T>::Arithmetic)?);
 
 			let id = NextRedeemId::<T>::get(&who);
-			let unlock_at = frame_system::Pallet::<T>::block_number()
-				.saturating_add(T::UnbondingPeriod::get());
-			RedeemRequests::<T>::insert(
-				&who,
-				id,
-				RedeemRequest { shares, unlock_at },
-			);
+			let unlock_at =
+				frame_system::Pallet::<T>::block_number().saturating_add(T::UnbondingPeriod::get());
+			RedeemRequests::<T>::insert(&who, id, RedeemRequest { shares, unlock_at });
 			NextRedeemId::<T>::insert(&who, id.checked_add(1).ok_or(Error::<T>::Arithmetic)?);
 
 			Self::deposit_event(Event::RedeemRequested { who, id, shares, unlock_at });
@@ -251,7 +244,8 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::claim_redeem())]
 		pub fn claim_redeem(origin: OriginFor<T>, id: u64) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let req = RedeemRequests::<T>::take(&who, id).ok_or(Error::<T>::UnknownRedeemRequest)?;
+			let req =
+				RedeemRequests::<T>::take(&who, id).ok_or(Error::<T>::UnknownRedeemRequest)?;
 			ensure!(
 				frame_system::Pallet::<T>::block_number() >= req.unlock_at,
 				Error::<T>::NotUnlocked
@@ -272,22 +266,14 @@ pub mod pallet {
 			let vault = Self::account_id();
 			T::Currency::transfer(&vault, &who, assets, Preservation::Expendable)?;
 
-			TotalAssets::<T>::put(
-				total_assets.checked_sub(&assets).ok_or(Error::<T>::Arithmetic)?,
-			);
+			TotalAssets::<T>::put(total_assets.checked_sub(&assets).ok_or(Error::<T>::Arithmetic)?);
 			TotalShares::<T>::put(
 				total_shares.checked_sub(&req.shares).ok_or(Error::<T>::Arithmetic)?,
 			);
 
-			Self::deposit_event(Event::RedeemClaimed {
-				who,
-				id,
-				shares: req.shares,
-				assets,
-			});
+			Self::deposit_event(Event::RedeemClaimed { who, id, shares: req.shares, assets });
 			Ok(())
 		}
-
 	}
 
 	impl<T: Config> Pallet<T> {

@@ -61,10 +61,7 @@ fn duplicate_hub_event_rejected() {
 #[test]
 fn zero_amount_rejected() {
 	new_test_ext().execute_with(|| {
-		assert_noop!(
-			HubFeed::report_slash(feed_origin(), eid(6), 1, 0),
-			Error::<Test>::ZeroAmount
-		);
+		assert_noop!(HubFeed::report_slash(feed_origin(), eid(6), 1, 0), Error::<Test>::ZeroAmount);
 	});
 }
 
