@@ -53,7 +53,7 @@ use polkadot_runtime_common::{
 	xcm_sender::ExponentialPrice, BlockHashCount, SlowAdjustingFeeUpdate,
 };
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_runtime::Perbill;
+use sp_runtime::{Perbill, Permill};
 use sp_version::RuntimeVersion;
 use xcm::latest::prelude::{AssetId, BodyId};
 
@@ -373,6 +373,18 @@ parameter_types! {
 	/// PoC unbond delay (10 blocks). Not Hub-aligned: production should track ~24–48h /
 	/// ~28 eras on Hub; keep this short only for local Zombienet.
 	pub const EdotUnbondingPeriod: BlockNumber = 10;
+	/// Illustrative self-stake floor; re-derive from live Hub staking params before mainnet.
+	pub const EdotSelfStakeFloor: Balance = 10_000 * UNIT;
+	/// Illustrative per-slot election-clearing threshold.
+	pub const EdotElectionThreshold: Balance = 1_440_000 * UNIT;
+	pub EdotMaxPhi: Permill = Permill::from_rational(EdotSelfStakeFloor::get(), EdotElectionThreshold::get());
+}
+
+pub struct OdotNominationBacking;
+impl pallet_edot::traits::NominationBacking<Balance> for OdotNominationBacking {
+	fn total_nomination_assets() -> Balance {
+		pallet_odot::Pallet::<Runtime>::rate_components().0
+	}
 }
 
 impl pallet_edot::Config for Runtime {
@@ -382,6 +394,10 @@ impl pallet_edot::Config for Runtime {
 	type MinimumDeposit = EdotMinimumDeposit;
 	type DeadShares = EdotDeadShares;
 	type UnbondingPeriod = EdotUnbondingPeriod;
+	type NominationBacking = OdotNominationBacking;
+	type SelfStakeFloor = EdotSelfStakeFloor;
+	type ElectionThreshold = EdotElectionThreshold;
+	type MaxPhi = EdotMaxPhi;
 	type WeightInfo = pallet_edot::weights::SubstrateWeight<Runtime>;
 }
 
