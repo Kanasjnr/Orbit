@@ -1,4 +1,4 @@
-import { Orbit } from "lucide-react";
+import { AlertTriangle, Orbit } from "lucide-react";
 import { Link } from "react-router-dom";
 import { MixPanel } from "@/components/MixPanel";
 import { VaultPanel } from "@/components/VaultPanel";
@@ -38,16 +38,21 @@ export function Dashboard() {
           </p>
         )}
 
+        <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+          <p>
+            Unaudited testnet PoC &mdash; do not deposit real DOT. eDOT can lose principal to a Hub
+            slash (oDOT cannot); v1 stash custody is a multisig, not user self-custody; shown rates
+            are modeled, not a guaranteed APY.
+          </p>
+        </div>
+
         <MixPanel api={api} />
 
         <main className="grid gap-5 md:grid-cols-2">
           <VaultPanel api={api} kind="odot" label="oDOT" account={selected} signer={signer} />
           <VaultPanel api={api} kind="edot" label="eDOT" account={selected} signer={signer} />
         </main>
-
-        <footer className="pt-4 text-center text-xs text-muted-foreground">
-          Testnet PoC. Not audited. Not mainnet. Do not deposit real DOT.
-        </footer>
       </div>
     </div>
   );
