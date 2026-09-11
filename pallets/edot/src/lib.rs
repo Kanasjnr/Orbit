@@ -5,7 +5,7 @@
 //! - Deposit DOT → mint eDOT shares at `rate = V / S`
 //! - Protocol redeem queues for `UnbondingPeriod` then pays at claim-time rate (§12, §14.5)
 //! - Accrue rewards / apply slash only via `pallet-hub-feed` (no admin mint/slash path)
-//! - Queued redeem for `UnbondingPeriod` then pays at claim-time rate (§12, §14.5)
+//! - Queued redeem for `UnbondingPeriod` then pays at claim-time rate
 //!
 //! Queued shares stay in `S` until claim, so a slash during unbond still socializes.
 //!
@@ -13,6 +13,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use pallet::*;
+pub use traits::NominationBacking;
 
 #[cfg(test)]
 mod mock;
@@ -20,13 +21,17 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+pub mod traits;
 pub mod weights;
 
 #[frame::pallet]
 pub mod pallet {
-	use crate::weights::WeightInfo;
+	use crate::{traits::NominationBacking, weights::WeightInfo};
 	use frame::{
-		deps::frame_support::{DefaultNoBound, PalletId},
+		deps::{
+			frame_support::{DefaultNoBound, PalletId},
+			sp_runtime::Permill,
+		},
 		prelude::*,
 		traits::{
 			fungible::{Inspect, Mutate},
@@ -62,6 +67,22 @@ pub mod pallet {
 		/// Blocks a protocol redeem must wait before `claim_redeem` (MVP stand-in for Hub unbond).
 		#[pallet::constant]
 		type UnbondingPeriod: Get<BlockNumberFor<Self>>;
+
+		/// Live oDOT vault backing, for the mix circuit breaker.
+		type NominationBacking: NominationBacking<BalanceOf<Self>>;
+
+		/// Per-slot self-stake floor.
+		#[pallet::constant]
+		type SelfStakeFloor: Get<BalanceOf<Self>>;
+
+		/// Per-slot election-clearing threshold. Illustrative until derived from
+		/// live Hub staking parameters.
+		#[pallet::constant]
+		type ElectionThreshold: Get<BalanceOf<Self>>;
+
+		/// Ceiling on live self-stake ratio; deposits that would cross it are refused.
+		#[pallet::constant]
+		type MaxPhi: Get<Permill>;
 
 		type WeightInfo: WeightInfo;
 	}
@@ -152,6 +173,8 @@ pub mod pallet {
 		UnknownRedeemRequest,
 		/// Unbonding period has not elapsed.
 		NotUnlocked,
+		/// Deposit would push the self-stake ratio above `MaxPhi`.
+		MixCeilingExceeded,
 	}
 
 	#[pallet::genesis_config]
@@ -194,6 +217,10 @@ pub mod pallet {
 			let total_assets = TotalAssets::<T>::get();
 			let total_shares = TotalShares::<T>::get();
 			ensure!(!total_assets.is_zero() && !total_shares.is_zero(), Error::<T>::EmptyVault);
+
+			let prospective_sigma =
+				total_assets.checked_add(&assets).ok_or(Error::<T>::Arithmetic)?;
+			Self::ensure_within_mix_ceiling(prospective_sigma)?;
 
 			let shares = assets
 				.checked_mul(&total_shares)
@@ -373,6 +400,51 @@ pub mod pallet {
 		/// Preview redeemable assets for `who`'s full balance.
 		pub fn assets_of(who: &T::AccountId) -> Result<BalanceOf<T>, Error<T>> {
 			Self::convert_to_assets(Shares::<T>::get(who))
+		}
+
+		/// Live self-stake ratio: eDOT backing over combined eDOT + oDOT backing.
+		pub fn phi() -> Permill {
+			let sigma = TotalAssets::<T>::get();
+			let nu = T::NominationBacking::total_nomination_assets();
+			let denom = sigma.saturating_add(nu);
+			if denom.is_zero() {
+				return Permill::zero();
+			}
+			Permill::from_rational(sigma, denom)
+		}
+
+		/// How many more slots current vault backing can fund, bounded by whichever
+		/// pool (self-stake or nomination) is scarcer.
+		pub fn k_openable() -> BalanceOf<T> {
+			let sigma_star = T::SelfStakeFloor::get();
+			if sigma_star.is_zero() {
+				return Zero::zero();
+			}
+			let nu_star = T::ElectionThreshold::get().saturating_sub(sigma_star);
+			if nu_star.is_zero() {
+				return Zero::zero();
+			}
+
+			let sigma = TotalAssets::<T>::get();
+			let nu = T::NominationBacking::total_nomination_assets();
+			let k_e = sigma.checked_div(&sigma_star).unwrap_or(Zero::zero());
+			let k_o = nu.checked_div(&nu_star).unwrap_or(Zero::zero());
+			if k_e < k_o {
+				k_e
+			} else {
+				k_o
+			}
+		}
+
+		fn ensure_within_mix_ceiling(prospective_sigma: BalanceOf<T>) -> DispatchResult {
+			let nu = T::NominationBacking::total_nomination_assets();
+			let denom = prospective_sigma.saturating_add(nu);
+			if denom.is_zero() {
+				return Ok(());
+			}
+			let phi = Permill::from_rational(prospective_sigma, denom);
+			ensure!(phi <= T::MaxPhi::get(), Error::<T>::MixCeilingExceeded);
+			Ok(())
 		}
 	}
 }
