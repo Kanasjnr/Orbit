@@ -22,21 +22,27 @@ export function useMixMetrics(api: ApiPromise | null) {
     let cancelled = false;
 
     const fetchOnce = () => {
-      api.call.orbitMixApi
-        .mixMetrics()
+      // Raw state_call rather than api.call.orbitMixApi.mixMetrics(): that
+      // path depends on ApiPromise's `runtime` option registering the exact
+      // metadata shape, which isn't guaranteed across polkadot-api versions.
+      api.rpc.state
+        .call("OrbitMixApi_mix_metrics", "0x")
         .then((raw) => {
           if (cancelled) return;
-          const tuple = raw as unknown as [
+          const [eDot, oDot, phi, slots] = api.registry.createType(
+            "(u128, u128, Permill, u32)",
+            raw,
+          ) as unknown as [
             { toString(): string },
             { toString(): string },
             { toNumber(): number },
             { toNumber(): number },
           ];
           setMetrics({
-            eDotBacking: new BN(tuple[0].toString()),
-            oDotBacking: new BN(tuple[1].toString()),
-            phiPercent: tuple[2].toNumber() / 10_000,
-            openableSlots: tuple[3].toNumber(),
+            eDotBacking: new BN(eDot.toString()),
+            oDotBacking: new BN(oDot.toString()),
+            phiPercent: phi.toNumber() / 10_000,
+            openableSlots: slots.toNumber(),
           });
           setError(null);
         })
