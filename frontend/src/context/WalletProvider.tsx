@@ -3,12 +3,16 @@ import type { Signer } from "@polkadot/api/types";
 import type { InjectedAccountWithMeta } from "@polkadot/extension-inject/types";
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { getApi, orbitWsEndpoint } from "@/lib/chain";
+import { getHubApi, hubWsEndpoint } from "@/lib/hubChain";
 import { connectWallet, getSigner } from "@/lib/wallet";
 
 interface WalletContextValue {
   api: ApiPromise | null;
   chainError: string | null;
   endpoint: string;
+  hubApi: ApiPromise | null;
+  hubChainError: string | null;
+  hubEndpoint: string;
   accounts: InjectedAccountWithMeta[];
   selected: string | null;
   signer: Signer | null;
@@ -23,6 +27,8 @@ const WalletContext = createContext<WalletContextValue | null>(null);
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [api, setApi] = useState<ApiPromise | null>(null);
   const [chainError, setChainError] = useState<string | null>(null);
+  const [hubApi, setHubApi] = useState<ApiPromise | null>(null);
+  const [hubChainError, setHubChainError] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<InjectedAccountWithMeta[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [signer, setSigner] = useState<Signer | null>(null);
@@ -33,6 +39,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     getApi()
       .then(setApi)
       .catch((err) => setChainError((err as Error).message));
+  }, []);
+
+  useEffect(() => {
+    getHubApi()
+      .then(setHubApi)
+      .catch((err) => setHubChainError((err as Error).message));
   }, []);
 
   useEffect(() => {
@@ -68,6 +80,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         api,
         chainError,
         endpoint: orbitWsEndpoint(),
+        hubApi,
+        hubChainError,
+        hubEndpoint: hubWsEndpoint(),
         accounts,
         selected,
         signer,
