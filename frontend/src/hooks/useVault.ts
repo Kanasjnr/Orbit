@@ -38,6 +38,11 @@ export function assetsFor(shares: BN, totalAssets: BN, totalShares: BN): BN {
   return shares.mul(totalAssets).div(totalShares);
 }
 
+export function sharesFor(assets: BN, totalAssets: BN, totalShares: BN): BN {
+  if (totalAssets.isZero()) return BN_ZERO;
+  return assets.mul(totalShares).div(totalAssets);
+}
+
 function toBN(codec: { toString(): string }): BN {
   return new BN(codec.toString());
 }
