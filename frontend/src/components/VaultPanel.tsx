@@ -1,11 +1,23 @@
 import type { ApiPromise } from "@polkadot/api";
 import { BN } from "@polkadot/util";
-import { ArrowDownToLine, ArrowUpFromLine, Clock, ShieldAlert, ShieldCheck, Wallet, Zap } from "lucide-react";
+import {
+  ArrowUpFromLine,
+  CheckCircle2,
+  Circle,
+  Clock,
+  Loader2,
+  ShieldAlert,
+  ShieldCheck,
+  Wallet,
+  XCircle,
+  Zap,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { useWallet } from "@/context/WalletProvider";
 import { useBlockNumber } from "@/hooks/useBlockNumber";
+import { useBridgeDeposit, type BridgeDepositStep } from "@/hooks/useBridgeDeposit";
 import { useFreeBalance } from "@/hooks/useFreeBalance";
-import { assetsFor, useVault, type VaultKind } from "@/hooks/useVault";
+import { assetsFor, sharesFor, useVault, type VaultKind } from "@/hooks/useVault";
 import { fromPlanck, toPlanck } from "@/lib/format";
 import { tokenSymbol } from "@/lib/chain";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +50,13 @@ const theme = {
 const PERCENTS = [25, 50, 75, 100];
 const SYMBOL = tokenSymbol();
 
+const DEPOSIT_STEPS: { key: BridgeDepositStep; label: string }[] = [
+  { key: "awaiting-hub-signature", label: "Sign transfer on Hub" },
+  { key: "awaiting-bridge-credit", label: "Waiting for Orbit to credit your deposit" },
+  { key: "awaiting-orbit-deposit", label: "Sign deposit on Orbit" },
+  { key: "done", label: "Deposited" },
+];
+
 function applyPercent(total: BN, pct: number): string {
   if (total.isZero()) return "0";
   const amount = total.muln(pct).divn(100);
@@ -45,10 +64,11 @@ function applyPercent(total: BN, pct: number): string {
 }
 
 export function VaultPanel({ api, kind, label }: Props) {
-  const { selected: account, signer, connect, connecting, walletError } = useWallet();
+  const { selected: account, signer, connect, connecting, walletError, hubApi } = useWallet();
   const vault = useVault(api, kind, account);
-  const freeBalance = useFreeBalance(api, account);
+  const hubBalance = useFreeBalance(hubApi, account);
   const blockNumber = useBlockNumber(api);
+  const bridgeDeposit = useBridgeDeposit({ hubApi, orbitApi: api, account, signer, vaultKind: kind });
   const [depositAmount, setDepositAmount] = useState("");
   const [redeemAmount, setRedeemAmount] = useState("");
 
@@ -66,6 +86,16 @@ export function VaultPanel({ api, kind, label }: Props) {
   const meta = theme[kind];
   const Icon = meta.icon;
   const BadgeIcon = meta.badge.icon;
+
+  const depositStepIndex = DEPOSIT_STEPS.findIndex((s) => s.key === bridgeDeposit.step);
+  const depositInProgress = bridgeDeposit.step !== "idle";
+
+  const estimatedShares = depositAmount
+    ? sharesFor(toPlanck(depositAmount), vault.totalAssets, vault.totalShares)
+    : null;
+  const estimatedAssets = redeemAmount
+    ? assetsFor(toPlanck(redeemAmount), vault.totalAssets, vault.totalShares)
+    : null;
 
   return (
     <Card className="overflow-hidden py-0 gap-0">
@@ -130,41 +160,91 @@ export function VaultPanel({ api, kind, label }: Props) {
             </TabsList>
 
             <TabsContent value="deposit" className="space-y-3">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Amount ({SYMBOL})</span>
-                <span>Balance: {fromPlanck(freeBalance)}</span>
-              </div>
-              <Input
-                type="text"
-                inputMode="decimal"
-                placeholder="0.0"
-                value={depositAmount}
-                onChange={(e) => setDepositAmount(e.target.value)}
-                disabled={!canSubmit}
-              />
-              <div className="flex gap-1.5">
-                {PERCENTS.map((pct) => (
+              {depositInProgress ? (
+                <div className="space-y-3 rounded-xl border p-4">
+                  {bridgeDeposit.error ? (
+                    <div className="flex items-start gap-2 text-sm text-destructive">
+                      <XCircle className="mt-0.5 size-4 shrink-0" />
+                      <p>{bridgeDeposit.error}</p>
+                    </div>
+                  ) : (
+                    DEPOSIT_STEPS.map((s, i) => {
+                      const isDone = i < depositStepIndex || bridgeDeposit.step === "done";
+                      const isCurrent = i === depositStepIndex && bridgeDeposit.step !== "done";
+                      return (
+                        <div key={s.key} className="flex items-center gap-2 text-sm">
+                          {isDone ? (
+                            <CheckCircle2 className="size-4 shrink-0 text-emerald-500" />
+                          ) : isCurrent ? (
+                            <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" />
+                          ) : (
+                            <Circle className="size-4 shrink-0 text-muted-foreground/40" />
+                          )}
+                          <span className={isCurrent ? "font-medium" : "text-muted-foreground"}>{s.label}</span>
+                        </div>
+                      );
+                    })
+                  )}
                   <Button
-                    key={pct}
-                    type="button"
-                    variant="outline"
                     size="sm"
-                    className="flex-1"
-                    disabled={!canSubmit}
-                    onClick={() => setDepositAmount(applyPercent(freeBalance, pct))}
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      const finished = bridgeDeposit.error !== null || bridgeDeposit.step === "done";
+                      if (finished) {
+                        bridgeDeposit.reset();
+                        setDepositAmount("");
+                      } else {
+                        bridgeDeposit.cancel();
+                      }
+                    }}
                   >
-                    {pct === 100 ? "Max" : `${pct}%`}
+                    {bridgeDeposit.error ? "Try again" : bridgeDeposit.step === "done" ? "Close" : "Cancel"}
                   </Button>
-                ))}
-              </div>
-              <Button
-                className={`w-full bg-gradient-to-r ${meta.gradient} text-white hover:opacity-90`}
-                disabled={!canSubmit || !depositAmount}
-                onClick={() => vault.deposit(toPlanck(depositAmount), signer!).then(() => setDepositAmount(""))}
-              >
-                <ArrowDownToLine />
-                {vault.busy ? "Depositing..." : `Deposit ${label}`}
-              </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Amount ({SYMBOL}, from your Hub balance)</span>
+                    <span>Hub balance: {fromPlanck(hubBalance)}</span>
+                  </div>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0.0"
+                    value={depositAmount}
+                    onChange={(e) => setDepositAmount(e.target.value)}
+                    disabled={!canSubmit}
+                  />
+                  {estimatedShares && (
+                    <p className="text-xs text-muted-foreground">
+                      You will receive <span className="font-medium text-foreground">~{fromPlanck(estimatedShares)}</span> {label}
+                    </p>
+                  )}
+                  <div className="flex gap-1.5">
+                    {PERCENTS.map((pct) => (
+                      <Button
+                        key={pct}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        disabled={!canSubmit}
+                        onClick={() => setDepositAmount(applyPercent(hubBalance, pct))}
+                      >
+                        {pct === 100 ? "Max" : `${pct}%`}
+                      </Button>
+                    ))}
+                  </div>
+                  <Button
+                    className={`w-full bg-gradient-to-r ${meta.gradient} text-white hover:opacity-90`}
+                    disabled={!canSubmit || !depositAmount}
+                    onClick={() => bridgeDeposit.start(toPlanck(depositAmount))}
+                  >
+                    Deposit {label}
+                  </Button>
+                </>
+              )}
             </TabsContent>
 
             <TabsContent value="redeem" className="space-y-3">
@@ -180,6 +260,11 @@ export function VaultPanel({ api, kind, label }: Props) {
                 onChange={(e) => setRedeemAmount(e.target.value)}
                 disabled={!canSubmit}
               />
+              {estimatedAssets && (
+                <p className="text-xs text-muted-foreground">
+                  You will receive <span className="font-medium text-foreground">~{fromPlanck(estimatedAssets)}</span> {SYMBOL}
+                </p>
+              )}
               <div className="flex gap-1.5">
                 {PERCENTS.map((pct) => (
                   <Button
