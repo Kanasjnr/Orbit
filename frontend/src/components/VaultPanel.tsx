@@ -17,7 +17,7 @@ import { useWallet } from "@/context/WalletProvider";
 import { useBlockNumber } from "@/hooks/useBlockNumber";
 import { useBridgeDeposit, type BridgeDepositStep } from "@/hooks/useBridgeDeposit";
 import { useFreeBalance } from "@/hooks/useFreeBalance";
-import { assetsFor, useVault, type VaultKind } from "@/hooks/useVault";
+import { assetsFor, sharesFor, useVault, type VaultKind } from "@/hooks/useVault";
 import { fromPlanck, toPlanck } from "@/lib/format";
 import { tokenSymbol } from "@/lib/chain";
 import { Badge } from "@/components/ui/badge";
@@ -89,6 +89,13 @@ export function VaultPanel({ api, kind, label }: Props) {
 
   const depositStepIndex = DEPOSIT_STEPS.findIndex((s) => s.key === bridgeDeposit.step);
   const depositInProgress = bridgeDeposit.step !== "idle";
+
+  const estimatedShares = depositAmount
+    ? sharesFor(toPlanck(depositAmount), vault.totalAssets, vault.totalShares)
+    : null;
+  const estimatedAssets = redeemAmount
+    ? assetsFor(toPlanck(redeemAmount), vault.totalAssets, vault.totalShares)
+    : null;
 
   return (
     <Card className="overflow-hidden py-0 gap-0">
@@ -209,6 +216,11 @@ export function VaultPanel({ api, kind, label }: Props) {
                     onChange={(e) => setDepositAmount(e.target.value)}
                     disabled={!canSubmit}
                   />
+                  {estimatedShares && (
+                    <p className="text-xs text-muted-foreground">
+                      You will receive <span className="font-medium text-foreground">~{fromPlanck(estimatedShares)}</span> {label}
+                    </p>
+                  )}
                   <div className="flex gap-1.5">
                     {PERCENTS.map((pct) => (
                       <Button
@@ -248,6 +260,11 @@ export function VaultPanel({ api, kind, label }: Props) {
                 onChange={(e) => setRedeemAmount(e.target.value)}
                 disabled={!canSubmit}
               />
+              {estimatedAssets && (
+                <p className="text-xs text-muted-foreground">
+                  You will receive <span className="font-medium text-foreground">~{fromPlanck(estimatedAssets)}</span> {SYMBOL}
+                </p>
+              )}
               <div className="flex gap-1.5">
                 {PERCENTS.map((pct) => (
                   <Button
