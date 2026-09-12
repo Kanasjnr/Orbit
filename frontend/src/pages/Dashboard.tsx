@@ -1,6 +1,7 @@
 import { AlertTriangle, Loader2, Orbit, Radio, WifiOff } from "lucide-react";
 import { Link } from "react-router-dom";
 import { MixPanel } from "@/components/MixPanel";
+import { PortfolioHero } from "@/components/PortfolioHero";
 import { VaultPanel } from "@/components/VaultPanel";
 import { WalletConnect } from "@/components/WalletConnect";
 import { useWallet } from "@/context/WalletProvider";
@@ -104,6 +105,8 @@ export function Dashboard() {
               shown rates are modeled, not a guaranteed APY.
             </p>
           </div>
+
+          <PortfolioHero api={api} />
 
           <MixPanel api={api} />
 
