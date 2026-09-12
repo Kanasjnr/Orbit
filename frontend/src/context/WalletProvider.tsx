@@ -4,7 +4,7 @@ import type { InjectedAccountWithMeta } from "@polkadot/extension-inject/types";
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { getApi, orbitWsEndpoint } from "@/lib/chain";
 import { getHubApi, hubWsEndpoint } from "@/lib/hubChain";
-import { connectWallet, getSigner } from "@/lib/wallet";
+import { connectWallet, getSigner, provideChainMetadata } from "@/lib/wallet";
 
 interface WalletContextValue {
   api: ApiPromise | null;
@@ -48,12 +48,19 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!selected) {
+    if (!selected || !api || !hubApi) {
       setSigner(null);
       return;
     }
-    getSigner(selected).then(setSigner);
-  }, [selected]);
+    let cancelled = false;
+    Promise.allSettled([provideChainMetadata(api, selected), provideChainMetadata(hubApi, selected)]).then(() => {
+      if (cancelled) return;
+      getSigner(selected).then((s) => !cancelled && setSigner(s));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selected, api, hubApi]);
 
   const connect = useCallback(async () => {
     setConnecting(true);
