@@ -4,7 +4,7 @@ Liquid staking for Polkadot after the June 2026 reward split: **oDOT** (nominati
 
 **Spec:** [WHITEPAPER.md](./WHITEPAPER.md). If this README and the whitepaper disagree, the whitepaper wins.
 
-Status: FRAME parachain scaffold on **`next-release`** (development trunk). **Not audited. Not mainnet. Do not deposit real DOT.**
+Status: live on **Paseo testnet** (para `2002`) off the **`next-release`** trunk, with a React dashboard talking to it. **Not audited. Not mainnet. Do not deposit real DOT.**
 
 ---
 
@@ -26,13 +26,16 @@ Open PRs from **`next-release` → `main`**. All feature work lands on `next-rel
 | `WHITEPAPER.md` | Protocol + economics spec (source of truth) |
 | `runtime/` | Orbit parachain runtime (Polkadot SDK template) |
 | `node/` | Optional collator node binary |
-| `pallets/odot/` | oDOT vault pallet deposit, redeem, exchange-rate accounting (§9) |
-| `pallets/edot/` | eDOT vault pallet deposit, redeem, queue, Hub slash (§9–10) |
-| `pallets/hub-feed/` | Hub observation ingress: nomination/self-stake rewards + eDOT slash (§17) |
+| `pallets/odot/` | oDOT vault pallet deposit, redeem, exchange-rate accounting |
+| `pallets/edot/` | eDOT vault pallet deposit, redeem, queue, Hub slash, mix circuit breaker  |
+| `pallets/hub-feed/` | Hub observation ingress: nomination/self-stake rewards + eDOT slash  |
+| `pallets/hub-bridge/` | Oracle-attested Hub ↔ Orbit balance bridge: deposit-in credits, withdrawal-out requests  |
+| `frontend/` | Vite + React dashboard: landing page, wallet connect, deposit/redeem against a live Orbit node |
 | `chopsticks/` | Chopsticks Asset Hub fork + Hub stake lab (`hub:setup`) |
-| `scripts/` | PAPI observer + Chopsticks Hub bond/nominate setup + **hub loop smoke** |
+| `paseo/` | Scripts to reserve/register the para, build the chain spec, run the collator, and upgrade the live runtime |
+| `scripts/` | PAPI observer, Chopsticks Hub bond/nominate setup, Paseo relay/upgrade/fund helpers, **hub loop smoke** |
 
-Phases **B–D.2** (vaults, unbond queues, `pallet-hub-feed`) are on the trunk. Hub lab: Chopsticks `npm run hub:setup` bonds Orbit stashes on forked Asset Hub; `hub:payout` forces `Staking.Rewarded`; `npm run hub:loop` reports into Orbit and asserts oDOT/eDOT `totalAssets`. PR CI typechecks scripts and exercises synthetic `hubFeed.report*` in Zombienet. Unbond delay is still a short PoC (not Hub-aligned).
+Vaults, unbond queues, `pallet-hub-feed`, the eDOT mix circuit breaker, `pallet-hub-bridge`, and the frontend are all on the trunk. Hub lab: Chopsticks `npm run hub:setup` bonds Orbit stashes on forked Asset Hub; `hub:payout` forces `Staking.Rewarded`; `npm run hub:loop` reports into Orbit and asserts oDOT/eDOT `totalAssets`. PR CI typechecks scripts and exercises synthetic `hubFeed.report*` in Zombienet. Unbond delay is still a short PoC (not Hub-aligned)
 
 ---
 
@@ -81,6 +84,21 @@ npx --yes @zombienet/cli --dir /tmp/zn-test --provider native test .github/tests
 ```
 
 Polkadot.js on the collator WS port from Zombienet output (e.g. `ws://127.0.0.1:…`). `polkadot-omni-node --dev` is not the primary path Aura slot mismatch on mock relay.
+
+### Live Paseo testnet
+
+Orbit runs as a registered parachain on Paseo (para `2002`) rather than only in a throwaway local network. Reserving/registering the para, building the chain spec, running the collator, and pushing runtime upgrades all live under `paseo/` — see [`paseo/README.md`](./paseo/README.md) for the full walkthrough, including the runtime-upgrade flow (`npm run paseo:upgrade` from `scripts/`) needed any time pallet code changes after the one-time para registration.
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+cp .env.example .env   # point VITE_ORBIT_WS / VITE_HUB_WS at your collator and Asset Hub
+npm run dev
+```
+
+The dashboard connects to Orbit directly and to Asset Hub for the deposit bridge; see [`frontend/README.md`](./frontend/README.md) for the environment variables it expects.
 
 ---
 
