@@ -1,4 +1,5 @@
 import { ApiPromise, WsProvider } from "@polkadot/api";
+import type { ApiOptions } from "@polkadot/api/types";
 
 const DEFAULT_HUB_WS = "wss://asset-hub-paseo-rpc.n.dwellir.com";
 
@@ -13,12 +14,19 @@ export function bridgeReceivingAccount(): string {
   return account;
 }
 
+// Asset Hub Paseo v2.5.2 decodes three Individuality extensions polkadot.js omits (None/None/false); drop after paseo-network/runtimes#434 ships.
+export const HUB_SIGNED_EXTENSIONS = {
+  AsPgas: { extrinsic: { asPgas: "Option<u8>" }, payload: {} },
+  AsDotnsGateway: { extrinsic: { asDotnsGateway: "Option<u8>" }, payload: {} },
+  RestrictOrigins: { extrinsic: { restrictOrigins: "bool" }, payload: {} },
+} as unknown as NonNullable<ApiOptions["signedExtensions"]>;
+
 let connection: Promise<ApiPromise> | null = null;
 
 export function getHubApi(): Promise<ApiPromise> {
   if (!connection) {
     const provider = new WsProvider(hubWsEndpoint());
-    connection = ApiPromise.create({ provider });
+    connection = ApiPromise.create({ provider, signedExtensions: HUB_SIGNED_EXTENSIONS });
   }
   return connection;
 }
