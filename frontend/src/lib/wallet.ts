@@ -17,7 +17,7 @@ export async function getSigner(address: string) {
   return injector.signer;
 }
 
-function metadataDefFor(api: ApiPromise): MetadataDef {
+function metadataDefFor(api: ApiPromise, userExtensions?: MetadataDef["userExtensions"]): MetadataDef {
   return {
     chain: api.runtimeChain.toString(),
     genesisHash: api.genesisHash.toHex(),
@@ -27,6 +27,7 @@ function metadataDefFor(api: ApiPromise): MetadataDef {
     tokenDecimals: api.registry.chainDecimals[0] ?? 12,
     tokenSymbol: api.registry.chainTokens[0] ?? "UNIT",
     types: {},
+    userExtensions,
   };
 }
 
@@ -36,11 +37,15 @@ function metadataDefFor(api: ApiPromise): MetadataDef {
  * with "Unable to find metadata for chain ...". Safe to call repeatedly: a
  * one-time approval prompt on an unknown chain, a no-op once it's known.
  */
-export async function provideChainMetadata(api: ApiPromise, address: string): Promise<void> {
+export async function provideChainMetadata(
+  api: ApiPromise,
+  address: string,
+  userExtensions?: MetadataDef["userExtensions"],
+): Promise<void> {
   const injector = await web3FromAddress(address);
   if (!injector.metadata) return;
   try {
-    await injector.metadata.provide(metadataDefFor(api));
+    await injector.metadata.provide(metadataDefFor(api, userExtensions));
   } catch {
     // User declined, or the extension doesn't support it — signing will
     // surface its own error later if metadata really is required.

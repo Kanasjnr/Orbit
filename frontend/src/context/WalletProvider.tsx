@@ -3,7 +3,7 @@ import type { Signer } from "@polkadot/api/types";
 import type { InjectedAccountWithMeta } from "@polkadot/extension-inject/types";
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { getApi, orbitWsEndpoint } from "@/lib/chain";
-import { getHubApi, hubWsEndpoint } from "@/lib/hubChain";
+import { getHubApi, HUB_SIGNED_EXTENSIONS, hubWsEndpoint } from "@/lib/hubChain";
 import { connectWallet, getSigner, provideChainMetadata } from "@/lib/wallet";
 
 interface WalletContextValue {
@@ -53,7 +53,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       return;
     }
     let cancelled = false;
-    Promise.allSettled([provideChainMetadata(api, selected), provideChainMetadata(hubApi, selected)]).then(() => {
+    Promise.allSettled([
+      provideChainMetadata(api, selected),
+      provideChainMetadata(hubApi, selected, HUB_SIGNED_EXTENSIONS),
+    ]).then(() => {
       if (cancelled) return;
       getSigner(selected).then((s) => !cancelled && setSigner(s));
     });
