@@ -22,6 +22,8 @@
     "paseo:coretime": "tsx paseo-relay.ts coretime",
     "paseo:upgrade": "tsx paseo-upgrade.ts",
     "paseo:fund": "tsx paseo-fund.ts",
+    "bridge:relay": "tsx hub-bridge-relay.ts",
+    "bridge:relay:dry": "tsx hub-bridge-relay.ts --dry-run",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {

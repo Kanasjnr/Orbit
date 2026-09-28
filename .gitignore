@@ -7,6 +7,7 @@ chain_spec.json
 node_modules/
 scripts/node_modules/
 scripts/hub-stashes.json
+scripts/hub-bridge-relay.state.json
 paseo/generated/
 paseo/data-*/
 paseo/orbit.env
