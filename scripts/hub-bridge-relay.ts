@@ -106,7 +106,18 @@ async function main() {
   const client = createWsClient(hubWs, { websocketClass: WebSocket as any });
   const hub = client.getTypedApi(pah);
 
-  let era = (await hub.query.Staking.ActiveEra.getValue())?.index ?? 0;
+  // Era is descriptive metadata on the deposit report, not load-bearing for crediting — some
+  // "Hub" stand-ins (a Zombienet chain playing Hub for local testing, say) have no Staking
+  // pallet at all, so this degrades to era 0 rather than refusing to watch for deposits.
+  async function readHubEra(): Promise<number> {
+    try {
+      return (await hub.query.Staking.ActiveEra.getValue())?.index ?? 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  let era = await readHubEra();
   console.log(`hub activeEra ${era}`);
 
   const depositStats = { seen: 0, ok: 0, dedup: 0, fail: 0 };
@@ -127,8 +138,8 @@ async function main() {
   const depositSub = hub.event.Balances.Transfer.watch().subscribe(
     ({ block, events }: { block: BlockInfo; events: any[] }) => {
       if (!events.length) return;
-      void hub.query.Staking.ActiveEra.getValue().then((v: { index: number } | undefined) => {
-        if (v?.index != null) era = v.index;
+      void readHubEra().then((e) => {
+        era = e;
       });
       void onTransfer(block, events);
     },
