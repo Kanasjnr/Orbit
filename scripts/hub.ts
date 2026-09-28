@@ -395,3 +395,80 @@ export async function openHub(hubWs: string): Promise<{
   await api.isReadyOrError;
   return { api, provider };
 }
+
+// Asset Hub Paseo v2.5.2 decodes three Individuality extensions polkadot.js omits (None/None/false); drop after paseo-network/runtimes#434 ships.
+export const HUB_SIGNED_EXTENSIONS = {
+  AsPgas: { extrinsic: { asPgas: "Option<u8>" }, payload: {} },
+  AsDotnsGateway: { extrinsic: { asDotnsGateway: "Option<u8>" }, payload: {} },
+  RestrictOrigins: { extrinsic: { restrictOrigins: "bool" }, payload: {} },
+} as const;
+
+/** Opens a live Hub connection for signing/submitting real extrinsics (payouts), not just reads. */
+export async function openLiveHub(hubWs: string): Promise<ApiPromise> {
+  const api = await ApiPromise.create({
+    provider: new WsProvider(hubWs, 5_000, {}, 60_000),
+    throwOnConnect: true,
+    signedExtensions: HUB_SIGNED_EXTENSIONS as any,
+  });
+  await api.isReadyOrError;
+  return api;
+}
+
+export async function reportBridgeDeposit(
+  orbit: ApiPromise,
+  oracle: ReturnType<Keyring["addFromUri"]>,
+  hubEventId: number[],
+  era: number,
+  account: string,
+  amount: bigint,
+  dryRun: boolean,
+): Promise<"ok" | "dedup" | "dry" | "fail"> {
+  if (amount === 0n) return "fail";
+  if (dryRun) {
+    console.log(`[dry] bridge-deposit ${account} ${amount} era=${era}`);
+    return "dry";
+  }
+
+  const tx = orbit.tx.hubBridge.reportBridgeDeposit(hubEventId, era, account, amount);
+  try {
+    const hash = await signAndWait(orbit, oracle, tx);
+    console.log(`  orbit bridge-deposit finalized ${hash}`);
+    return "ok";
+  } catch (e: any) {
+    const msg = e?.message ?? String(e);
+    if (msg.includes("DuplicateHubEvent")) {
+      console.log(`  dedup bridge-deposit`);
+      return "dedup";
+    }
+    console.error(`  fail bridge-deposit: ${msg}`);
+    return "fail";
+  }
+}
+
+export async function reportWithdrawalFulfilled(
+  orbit: ApiPromise,
+  oracle: ReturnType<Keyring["addFromUri"]>,
+  id: number,
+  hubEventId: number[],
+  dryRun: boolean,
+): Promise<"ok" | "dedup" | "dry" | "fail"> {
+  if (dryRun) {
+    console.log(`[dry] withdrawal-fulfilled id=${id}`);
+    return "dry";
+  }
+
+  const tx = orbit.tx.hubBridge.reportWithdrawalFulfilled(id, hubEventId);
+  try {
+    const hash = await signAndWait(orbit, oracle, tx);
+    console.log(`  orbit withdrawal-fulfilled finalized ${hash}`);
+    return "ok";
+  } catch (e: any) {
+    const msg = e?.message ?? String(e);
+    if (msg.includes("DuplicateHubEvent")) {
+      console.log(`  dedup withdrawal-fulfilled`);
+      return "dedup";
+    }
+    console.error(`  fail withdrawal-fulfilled: ${msg}`);
+    return "fail";
+  }
+}
