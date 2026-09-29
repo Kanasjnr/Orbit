@@ -13,3 +13,4 @@ paseo/data-*/
 paseo/orbit.env
 bin/
 frontend/.env
+frontend/.env.local
