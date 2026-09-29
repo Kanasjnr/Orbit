@@ -4,7 +4,7 @@ Liquid staking for Polkadot after the June 2026 reward split: **oDOT** (nominati
 
 **Spec:** [WHITEPAPER.md](./WHITEPAPER.md). If this README and the whitepaper disagree, the whitepaper wins.
 
-Status: live on **Paseo testnet** (para `2002`) off the **`next-release`** trunk, with a React dashboard talking to it. **Not audited. Not mainnet. Do not deposit real DOT.**
+Status: the full protocol loop — deposit, the eDOT mix circuit breaker, redeem — is proven end to end on a local Zombienet network, dashboard included. Orbit is also registered on **Paseo testnet** (para `2002`), but Paseo's on-demand coretime is currently broken chain-wide (tracked in [#34](https://github.com/Kanasjnr/Orbit/issues/34)), so the live deployment isn't producing blocks right now; Zombienet is the current path for hands-on testing until that clears. **Not audited. Not mainnet. Do not deposit real DOT.**
 
 ---
 
@@ -33,7 +33,7 @@ Open PRs from **`next-release` → `main`**. All feature work lands on `next-rel
 | `frontend/` | Vite + React dashboard: landing page, wallet connect, deposit/redeem against a live Orbit node |
 | `chopsticks/` | Chopsticks Asset Hub fork + Hub stake lab (`hub:setup`) |
 | `paseo/` | Scripts to reserve/register the para, build the chain spec, run the collator, and upgrade the live runtime |
-| `scripts/` | PAPI observer, Chopsticks Hub bond/nominate setup, Paseo relay/upgrade/fund helpers, **hub loop smoke** |
+| `scripts/` | PAPI observer, Chopsticks Hub bond/nominate setup, Paseo relay/upgrade/fund helpers, the Hub↔Orbit bridge relayer, **hub loop smoke** |
 
 Vaults, unbond queues, `pallet-hub-feed`, the eDOT mix circuit breaker, `pallet-hub-bridge`, and the frontend are all on the trunk. Hub lab: Chopsticks `npm run hub:setup` bonds Orbit stashes on forked Asset Hub; `hub:payout` forces `Staking.Rewarded`; `npm run hub:loop` reports into Orbit and asserts oDOT/eDOT `totalAssets`. PR CI typechecks scripts and exercises synthetic `hubFeed.report*` in Zombienet. Unbond delay is still a short PoC (not Hub-aligned)
 
@@ -77,17 +77,33 @@ cargo +1.93.1 build --release -p polkadot   # emits polkadot + *-worker binaries
 cp target/release/polkadot target/release/polkadot-*-worker \
   "$ORBIT_ROOT/target/release/"
 
-# 3) Run integration test
+# 3a) Run the automated CI check (spawns, asserts, tears down)
 cd "$ORBIT_ROOT"
 export PATH="$PWD/target/release:$PATH"
 npx --yes @zombienet/cli --dir /tmp/zn-test --provider native test .github/tests/zombienet-integration.zndsl
+
+# 3b) Or spawn it as a network you can actually click around against
+npx --yes @zombienet/cli --dir /tmp/zn-run --provider native spawn zombienet.toml
 ```
 
-Polkadot.js on the collator WS port from Zombienet output (e.g. `ws://127.0.0.1:…`). `polkadot-omni-node --dev` is not the primary path Aura slot mismatch on mock relay.
+For `spawn`, don't pre-create `--dir`'s target directory — Zombienet treats an already-existing directory as a stale run and blocks on an interactive `y/N` prompt, which just hangs if nothing's attached to stdin. Point Polkadot.js (or the frontend, below) at the collator's WS port from the "Network launched" output — the native provider assigns ports dynamically, so it's rarely the `ws_port` written in `zombienet.toml`. `polkadot-omni-node --dev` is not the primary path Aura slot mismatch on mock relay.
+
+Zombienet's own relay chain and Orbit's parachain token have nothing to do with Paseo or real PAS — they're throwaway dev-only balances from genesis, pre-funded for the well-known dev accounts (Alice, Bob, …). A fresh account (a real wallet you connect with) starts at zero and needs funding by one of them; `scripts/zombienet-fund.ts` does exactly that (`tsx zombienet-fund.ts <address> [amount-in-UNIT] [ws-endpoint]`, signs from `//Alice`).
+
+#### Testing the full deposit flow locally
+
+Zombienet has no real Asset Hub, so the bridge's Hub-side leg has nothing to bridge from by default. To exercise the real guided deposit flow (Hub-side signature → relayer catches it → Orbit credits it → local `deposit()`) against a spawned network:
+
+1. Fund two different accounts with `zombienet-fund.ts` — one to deposit from, and use the address already configured as `VITE_BRIDGE_RECEIVING_ACCOUNT` as the receiving side. Depositing from the receiving account itself is a real but pointless self-transfer: Substrate's balances pallet treats debiting and crediting the same account as a no-op and never emits a `Transfer` event, so the relayer has nothing to see.
+2. In `frontend/`, create `.env.local` (already gitignored, sits above `.env` in Vite's precedence so it doesn't touch your real Paseo config) pointing **both** `VITE_ORBIT_WS` and `VITE_HUB_WS` at the same Zombienet collator endpoint — for this test, Orbit and "Hub" are deliberately the same chain.
+3. Run the relayer against that same endpoint for both sides: `HUB_WS=<endpoint> ORBIT_WS=<endpoint> npx tsx hub-bridge-relay.ts` (from `scripts/`).
+4. Use the dashboard normally from there — sign the Hub-side transfer, the relayer reports the credit, sign the local deposit.
+
+One known gap found running this live: the relayer's deposit-watching leg has no catch-up if it misses a live event (unlike the withdrawal leg, which sweeps `PendingWithdrawals` on startup) — if a deposit sits at "waiting for Orbit to credit" for more than ~15s, the transfer likely landed but the relayer missed the notification, worth a manual check rather than assuming it'll resolve.
 
 ### Live Paseo testnet
 
-Orbit runs as a registered parachain on Paseo (para `2002`) rather than only in a throwaway local network. Reserving/registering the para, building the chain spec, running the collator, and pushing runtime upgrades all live under `paseo/` — see [`paseo/README.md`](./paseo/README.md) for the full walkthrough, including the runtime-upgrade flow (`npm run paseo:upgrade` from `scripts/`) needed any time pallet code changes after the one-time para registration.
+Orbit runs as a registered parachain on Paseo (para `2002`) rather than only in a throwaway local network. Reserving/registering the para, building the chain spec, running the collator, and pushing runtime upgrades all live under `paseo/` — see [`paseo/README.md`](./paseo/README.md) for the full walkthrough, including the runtime-upgrade flow (`npm run paseo:upgrade` from `scripts/`) needed any time pallet code changes after the one-time para registration. As noted above, Paseo's on-demand coretime is currently broken chain-wide, so a synced collator won't produce blocks until that's resolved ([#34](https://github.com/Kanasjnr/Orbit/issues/34)) — Zombienet is the reliable path for now.
 
 ### Frontend
 
@@ -104,6 +120,6 @@ The dashboard connects to Orbit directly and to Asset Hub for the deposit bridge
 
 ## Disclosures
 
-Code is unaudited until a production audit lands. v1 production custody is **multisig stash + `StakingOperator`**, not “users keep the stash.” Hub slash hits **eDOT only**; oDOT is not a slash waterfall. Theft or buggy accounting can still impair either vault. Economic figures in the whitepaper (including any ~73% anecdote) are not promised APYs.
+Code is unaudited until a production audit lands. v1 production custody is **multisig stash + `StakingOperator`**, not “users keep the stash.” Hub slash hits **eDOT only**; oDOT is not a slash waterfall. Theft or buggy accounting can still impair either vault. Economic figures in the whitepaper (including any ~73% anecdote) are not promised APYs. The bridge relayer (`scripts/hub-bridge-relay.ts`) has a known reliability gap: its deposit-watching leg relies on a live event subscription with no replay if a notification is missed, so a deposit can land on Hub without being auto-credited on Orbit.
 
 Full list: whitepaper §16.
